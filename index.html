@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบบริหารจัดการแผนและ QA</title>
+  
+  <!-- Google Fonts: Prompt -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Custom Tailwind Config -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              navy: '#0f172a',    
+              primary: '#4f46e5', 
+              light: '#f8fafc',   
+              gold: '#f59e0b',    
+            }
+          },
+          boxShadow: {
+            'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+            'glow': '0 0 15px rgba(79, 70, 229, 0.3)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- React & ReactDOM (UMD) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel for compiling JSX in browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Recharts Dependencies -->
+  <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+  <script src="https://unpkg.com/react-is@18.2.0/umd/react-is.production.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.1.12/umd/Recharts.js"></script>
+
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <style>
+    body { 
+      font-family: 'Prompt', sans-serif; 
+      background-color: #f8fafc;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React Code -->
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = window.Recharts;
+
+    // ==========================================
+    // ⚙️ การตั้งค่า SUPABASE (ใส่ข้อมูลของคุณที่นี่)
+    // ==========================================
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
+    
+    const isSupabaseReady = SUPABASE_URL !== 'YOUR_SUPABASE_URL_HERE';
+    const supabase = isSupabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+    // --- Mock Data ---
+    const chartData = [
+      { name: 'วิชาการ', budget: 4000000, used: 2400000 },
+      { name: 'บุคลากร', budget: 3000000, used: 1398000 },
+      { name: 'งบประมาณ', budget: 2000000, used: 1800000 },
+      { name: 'ทั่วไป', budget: 2780000, used: 1908000 },
+    ];
+
+    const projectsData = [
+      { id: 1, name: 'โครงการพัฒนาศักยภาพผู้เรียน', progress: 85, target: 90 },
+      { id: 2, name: 'โครงการปรับปรุงภูมิทัศน์โรงเรียน', progress: 100, target: 100 },
+      { id: 3, name: 'โครงการส่งเสริมคุณธรรมจริยธรรม', progress: 45, target: 80 },
+    ];
+
+    const mockActivities = [
+      { id: 'ACT-67-001', name: 'ค่ายวิชาการคณิตศาสตร์', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 15000, status: 'รออนุมัติ QA', pdca: 'Plan' },
+      { id: 'ACT-67-002', name: 'อบรมมารยาทไทย', project: 'โครงการส่งเสริมคุณธรรมจริยธรรม', budget: 5000, status: 'กำลังดำเนินการ', pdca: 'Do' },
+      { id: 'ACT-67-003', name: 'ปรับปรุงสวนหย่อมหน้าอาคาร', project: 'โครงการปรับปรุงภูมิทัศน์โรงเรียน', budget: 50000, status: 'เสร็จสิ้น', pdca: 'Act' },
+      { id: 'ACT-67-004', name: 'ทัศนศึกษา ม.3', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 120000, status: 'ร่าง', pdca: '-' },
+      { id: 'ACT-67-005', name: 'จัดซื้ออุปกรณ์วิทยาศาสตร์', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 45000, status: 'รออนุมัติ ผอ.', pdca: 'Plan' },
+      { id: 'ACT-67-006', name: 'อบรมครูแกนนำ', project: 'โครงการส่งเสริมคุณธรรมจริยธรรม', budget: 20000, status: 'รออนุมัติ ผอ.', pdca: 'Plan' },
+    ];
+
+    const mockUsers = [
+      { id: 1, name: 'สมชาย รักเรียน', username: 'somchai.r', role: 'Teacher', status: 'Active', lastLogin: '10 นาทีที่แล้ว' },
+      { id: 2, name: 'สมศรี มีความรู้', username: 'somsri.m', role: 'QA Admin', status: 'Active', lastLogin: '1 ชั่วโมงที่แล้ว' },
+      { id: 3, name: 'อำนวย สั่งการ', username: 'amnuay.s', role: 'Director', status: 'Active', lastLogin: 'วันนี้ 08:30' },
+      { id: 4, name: 'วิชัย คุมเงิน', username: 'wichai.k', role: 'Manager', status: 'Inactive', lastLogin: '3 วันที่แล้ว' },
+    ];
+
+    const mockBudgetRequests = [
+      { id: 'REQ-67-001', activity: 'อบรมมารยาทไทย', amount: 5000, date: '10/10/2024', status: 'รออนุมัติ (Manager)' },
+      { id: 'REQ-67-002', activity: 'ปรับปรุงสวนหย่อมหน้าอาคาร', amount: 25000, date: '05/10/2024', status: 'อนุมัติแล้ว' },
+    ];
+
+    const getStatusStyle = (status) => {
+      switch(status) {
+        case 'เสร็จสิ้น': 
+        case 'อนุมัติแล้ว': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+        case 'กำลังดำเนินการ': return 'bg-blue-100 text-blue-700 border-blue-200';
+        case 'รออนุมัติ QA': 
+        case 'รออนุมัติ ผอ.':
+        case 'รออนุมัติ (Manager)':
+        case 'รอตรวจสอบ': return 'bg-amber-100 text-amber-700 border-amber-200';
+        case 'ตีกลับ': 
+        case 'ไม่อนุมัติ': return 'bg-rose-100 text-rose-700 border-rose-200';
+        default: return 'bg-slate-100 text-slate-600 border-slate-200';
+      }
+    };
+
+    const initialSchoolsData = {
+      '1001': { id: '1001', name: 'โรงเรียนมัธยมตัวอย่างที่ 1 (Local)', logo: '', activeMenus: ['dashboard', 'proposeActivity', 'projectMgmt', 'activityMgmt', 'budgetRequest', 'qaScreening', 'directorApproval', 'managerApproval', 'users', 'settings'] },
+      '1002': { id: '1002', name: 'โรงเรียนมัธยมตัวอย่างที่ 2 (Local)', logo: '', activeMenus: ['dashboard', 'proposeActivity', 'activityMgmt', 'settings'] }
+    };
+
+    const translations = {
+      th: {
+        appTitle: 'ระบบบริหารจัดการแผนและ QA',
+        loginTitle: 'เข้าสู่ระบบสถานศึกษา',
+        schoolCode: 'รหัสสถานศึกษา',
+        username: 'ชื่อผู้ใช้งาน',
+        password: 'รหัสผ่าน',
+        loginBtn: 'เข้าสู่ระบบ',
+        logout: 'ออกจากระบบ',
+        invalidLogin: 'รหัสสถานศึกษาไม่ถูกต้อง (กรุณาลอง 1001)',
+        role: 'บทบาทผู้ใช้งาน:',
+        dashboard: 'ภาพรวมระบบ',
+        projectMgmt: 'จัดการโครงการ',
+        activityMgmt: 'จัดการกิจกรรม',
+        proposeActivity: 'เสนอจัดตั้งกิจกรรม',
+        budgetRequest: 'ขอเบิกงบประมาณ',
+        qaScreening: 'การกลั่นกรอง (QA)',
+        directorApproval: 'อนุมัติโครงการ',
+        managerApproval: 'อนุมัติงบประมาณ',
+        settings: 'ตั้งค่าระบบ',
+        users: 'จัดการผู้ใช้งาน',
+        totalBudget: 'งบประมาณรวมทั้งหมด',
+        usedBudget: 'เบิกจ่ายไปแล้ว',
+        pendingBudget: 'รออนุมัติเบิกจ่าย',
+        totalProjects: 'โครงการทั้งหมด (ปีนี้)',
+        budgetOverview: 'ภาพรวมงบประมาณตามกลุ่มงาน',
+        projectProgress: 'ความก้าวหน้าโครงการ (Roll-up Logic)',
+        createActivity: 'ฟอร์มเสนอจัดตั้งกิจกรรม',
+        exportWord: 'ส่งออกเป็น Word',
+        save: 'บันทึกข้อมูล',
+        activityName: 'ชื่อกิจกรรม',
+        selectProject: 'เลือกโครงการหลัก',
+        budgetAmount: 'งบประมาณที่ขอ (บาท)',
+        activityList: 'รายการกิจกรรมทั้งหมด',
+        searchActivity: 'ค้นหากิจกรรม...',
+        status: 'สถานะ',
+        pdca: 'PDCA',
+        action: 'จัดการ',
+        schoolProfile: 'ข้อมูลสถานศึกษา',
+        schoolLogoUrl: 'URL โลโก้โรงเรียน (Link รูปภาพ)',
+        schoolName: 'ชื่อโรงเรียน / สถานศึกษา',
+        menuManagement: 'จัดการหน้าและเมนู',
+        saveSettingsSuccess: 'บันทึกการตั้งค่าเรียบร้อยแล้ว',
+        generalSettings: 'ตั้งค่าทั่วไป',
+        enableMenu: 'เปิดใช้งานหน้า/เมนูนี้',
+        qaPendingList: 'รายการรอการกลั่นกรอง (QA)',
+        directorPendingList: 'รายการรอผู้อำนวยการพิจารณา',
+        approve: 'อนุมัติ / ผ่าน',
+        reject: 'ตีกลับ / ไม่อนุมัติ',
+        reqBudgetList: 'ประวัติคำขอเบิกงบประมาณ',
+        createBudgetReq: 'สร้างคำขอเบิกงบ',
+        userList: 'รายชื่อผู้ใช้งานระบบ',
+        addUser: 'เพิ่มผู้ใช้งาน',
+        fullname: 'ชื่อ-นามสกุล',
+        lastLogin: 'เข้าสู่ระบบล่าสุด',
+        projectList: 'รายการโครงการทั้งหมด',
+        createProject: 'สร้างโครงการใหม่',
+        projectName: 'ชื่อโครงการ',
+        projectCode: 'รหัสโครงการ',
+        progress: 'ความคืบหน้า',
+        budget: 'งบประมาณ',
+      },
+      en: {
+        appTitle: 'Plan & QA Workspace',
+        loginTitle: 'School Login Gateway',
+        schoolCode: 'Organization ID',
+        username: 'Username',
+        password: 'Password',
+        loginBtn: 'Sign In',
+        logout: 'Sign Out',
+        invalidLogin: 'Invalid Organization ID (Try 1001)',
+        role: 'Current Role:',
+        dashboard: 'Dashboard',
+        projectMgmt: 'Projects',
+        activityMgmt: 'Activities',
+        proposeActivity: 'New Activity',
+        budgetRequest: 'Budget Request',
+        qaScreening: 'QA Screening',
+        directorApproval: 'Director Approval',
+        managerApproval: 'Manager Approval',
+        settings: 'Settings',
+        users: 'Users',
+        totalBudget: 'Total Allocated Budget',
+        usedBudget: 'Utilized Budget',
+        pendingBudget: 'Pending Approval',
+        totalProjects: 'Active Projects',
+        budgetOverview: 'Budget Overview by Department',
+        projectProgress: 'Project Progress Tracking',
+        createActivity: 'Activity Proposal Form',
+        exportWord: 'Export to Word',
+        save: 'Save Changes',
+        activityName: 'Activity Name',
+        selectProject: 'Parent Project',
+        budgetAmount: 'Requested Amount (THB)',
+        activityList: 'All Activities',
+        searchActivity: 'Search activities...',
+        status: 'Status',
+        pdca: 'PDCA',
+        action: 'Actions',
+        schoolProfile: 'School Profile',
+        schoolLogoUrl: 'School Logo URL (Image Link)',
+        schoolName: 'School / Organization Name',
+        menuManagement: 'Menu & Page Management',
+        saveSettingsSuccess: 'Settings saved successfully',
+        generalSettings: 'General Settings',
+        enableMenu: 'Enable this page/menu',
+        qaPendingList: 'Pending QA Screening',
+        directorPendingList: 'Pending Director Approval',
+        approve: 'Approve',
+        reject: 'Reject / Return',
+        reqBudgetList: 'Budget Request History',
+        createBudgetReq: 'Create Request',
+        userList: 'System Users',
+        addUser: 'Add User',
+        fullname: 'Full Name',
+        lastLogin: 'Last Login',
+        projectList: 'All Projects',
+        createProject: 'Create New Project',
+        projectName: 'Project Name',
+        projectCode: 'Project Code',
+        progress: 'Progress',
+        budget: 'Budget',
+      }
+    };
+
+    function StatCard({ title, value, colorClass, icon }) {
+      return (
+        <div className="bg-white p-6 rounded-2xl shadow-soft border border-slate-100 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-slate-500 font-medium mb-1">{title}</p>
+              <p className="text-2xl font-bold text-slate-800">{value}</p>
+            </div>
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors duration-300 ${colorClass}`}>
+              <i className={`${icon} text-xl`}></i>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [lang, setLang] = useState('th');
+      const [role, setRole] = useState('Super Admin');
+      const [activeMenu, setActiveMenu] = useState('dashboard');
+      
+      const [schoolsDb, setSchoolsDb] = useState(initialSchoolsData);
+      
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [schoolInfo, setSchoolInfo] = useState(null);
+      const [loginForm, setLoginForm] = useState({ schoolCode: '', username: '', password: '' });
+      const [loginError, setLoginError] = useState('');
+      const [isLoading, setIsLoading] = useState(false);
+
+      const [settingsTab, setSettingsTab] = useState('general');
+      const [settingsForm, setSettingsForm] = useState({ name: '', logo: '', activeMenus: [] });
+      const [settingsSuccess, setSettingsSuccess] = useState(false);
+
+      const t = translations[lang];
+
+      useEffect(() => {
+        if (schoolInfo) {
+          setSettingsForm({
+            name: schoolInfo.name,
+            logo: schoolInfo.logo || '',
+            activeMenus: schoolInfo.activeMenus ? [...schoolInfo.activeMenus] : []
+          });
+        }
+      }, [schoolInfo]);
+
+      const toggleLanguage = () => {
+        setLang(lang === 'th' ? 'en' : 'th');
+      };
+
+      const handleLogin = async (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setLoginError('');
+
+        if (isSupabaseReady) {
+          try {
+            const { data, error } = await supabase
+              .from('schools')
+              .select('*')
+              .eq('school_code', loginForm.schoolCode)
+              .single();
+
+            if (error) throw error;
+            
+            if (data) {
+              setSchoolInfo({
+                id: data.school_code,
+                name: data.name,
+                logo: data.logo,
+                activeMenus: data.active_menus || initialSchoolsData['1001'].activeMenus
+              });
+              setIsLoggedIn(true);
+            }
+          } catch (error) {
+            console.error('Supabase Error:', error);
+            setLoginError(t.invalidLogin);
+          }
+        } else {
+          setTimeout(() => {
+            if (schoolsDb[loginForm.schoolCode]) {
+              setSchoolInfo(schoolsDb[loginForm.schoolCode]);
+              setIsLoggedIn(true);
+            } else {
+              setLoginError(t.invalidLogin);
+            }
+            setIsLoading(false);
+          }, 800);
+          return;
+        }
+        setIsLoading(false);
+      };
+
+      const handleLogout = () => {
+        setIsLoggedIn(false);
+        setSchoolInfo(null);
+        setLoginForm({ schoolCode: '', username: '', password: '' });
+        setActiveMenu('dashboard');
+      };
+
+      const menuItems = [
+        { id: 'dashboard', icon: 'fa-solid fa-chart-pie', label: t.dashboard, roles: ['Super Admin', 'QA Admin', 'Director', 'Manager', 'Teacher'] },
+        { id: 'proposeActivity', icon: 'fa-solid fa-circle-plus', label: t.proposeActivity, roles: ['Super Admin', 'Teacher'] },
+        { id: 'projectMgmt', icon: 'fa-solid fa-folder-open', label: t.projectMgmt, roles: ['Super Admin'] },
+        { id: 'activityMgmt', icon: 'fa-solid fa-clipboard-list', label: t.activityMgmt, roles: ['Super Admin', 'Teacher', 'QA Admin'] },
+        { id: 'budgetRequest', icon: 'fa-solid fa-wallet', label: t.budgetRequest, roles: ['Super Admin', 'Teacher'] },
+        { id: 'qaScreening', icon: 'fa-solid fa-clipboard-check', label: t.qaScreening, roles: ['Super Admin', 'QA Admin'] },
+        { id: 'directorApproval', icon: 'fa-solid fa-file-signature', label: t.directorApproval, roles: ['Super Admin', 'Director'] },
+        { id: 'managerApproval', icon: 'fa-solid fa-file-invoice-dollar', label: t.managerApproval, roles: ['Super Admin', 'Manager'] },
+        { id: 'users', icon: 'fa-solid fa-users', label: t.users, roles: ['Super Admin'] },
+        { id: 'settings', icon: 'fa-solid fa-gear', label: t.settings, roles: ['Super Admin'] },
+      ];
+
+      const visibleMenu = menuItems.filter(menu => 
+        menu.roles.includes(role) && 
+        (schoolInfo ? (schoolInfo.activeMenus || []).includes(menu.id) : true)
+      );
+
+      const handleSaveSettings = async (e) => {
+        e.preventDefault();
+        const updatedSchool = { 
+          ...schoolInfo, 
+          name: settingsForm.name, 
+          logo: settingsForm.logo,
+          activeMenus: settingsForm.activeMenus
+        };
+
+        if (isSupabaseReady) {
+          const { error } = await supabase
+            .from('schools')
+            .update({ 
+              name: updatedSchool.name, 
+              logo: updatedSchool.logo, 
+              active_menus: updatedSchool.activeMenus 
+            })
+            .eq('school_code', updatedSchool.id);
+            
+          if (!error) {
+            setSchoolInfo(updatedSchool);
+          } else {
+            console.error("Save Error:", error);
+          }
+        } else {
+          setSchoolInfo(updatedSchool);
+          setSchoolsDb(prev => ({ ...prev, [updatedSchool.id]: updatedSchool }));
+        }
+        
+        setSettingsSuccess(true);
+        setTimeout(() => setSettingsSuccess(false), 3000);
+      };
+
+      const handleToggleMenu = (menuId) => {
+        setSettingsForm(prev => {
+          const isActive = prev.activeMenus.includes(menuId);
+          if (isActive) {
+            return { ...prev, activeMenus: prev.activeMenus.filter(id => id !== menuId) };
+          } else {
+            return { ...prev, activeMenus: [...prev.activeMenus, menuId] };
+          }
+        });
+      };
+
+      // ----------------------------------------------------
+      // LOGIN SCREEN
+      // ----------------------------------------------------
+      if (!isLoggedIn) {
+        return (
+          <div className="min-h-screen bg-brand-light flex items-center justify-center p-4 relative overflow-hidden">
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-primary rounded-full blur-[120px] opacity-20"></div>
+            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-gold rounded-full blur-[120px] opacity-20"></div>
+
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-white/40 relative z-10 animate-in fade-in zoom-in-95 duration-500">
+              
+              <div className="w-full md:w-5/12 bg-brand-navy p-10 flex flex-col justify-between relative overflow-hidden text-white">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary rounded-full blur-[80px] opacity-40 -translate-y-1/2 translate-x-1/2"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-gold to-yellow-600 flex items-center justify-center text-brand-navy font-bold text-3xl mb-6 shadow-lg">QA</div>
+                  <h1 className="text-3xl font-bold mb-2 leading-tight">{t.appTitle}</h1>
+                  <p className="text-slate-300 text-sm opacity-80 leading-relaxed">ระบบบริหารจัดการนโยบาย แผนงาน โครงการ กิจกรรม งบประมาณ และการประกันคุณภาพการศึกษาระดับองค์กร</p>
+                  
+                  <div className={`mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${isSupabaseReady ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-amber-500/30 text-amber-400 bg-amber-500/10'}`}>
+                    <span className={`w-2 h-2 rounded-full ${isSupabaseReady ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
+                    {isSupabaseReady ? 'Supabase Connected' : 'Local Mock Data Mode'}
+                  </div>
+                </div>
+                <div className="relative z-10 mt-12 md:mt-0">
+                  <div className="flex items-center gap-3 text-sm text-slate-400">
+                    <i className="fa-solid fa-shield-halved"></i>
+                    <span>Secure Cloud Platform</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="w-full md:w-7/12 p-10 md:p-14 bg-white">
+                <div className="max-w-md mx-auto">
+                  <h2 className="text-2xl font-bold text-slate-800 mb-2">{t.loginTitle}</h2>
+                  <p className="text-slate-500 text-sm mb-8">กรุณากรอกข้อมูลเพื่อเข้าใช้งานระบบ</p>
+
+                  {loginError && (
+                    <div className="bg-rose-50 text-rose-600 p-4 rounded-xl text-sm mb-6 border border-rose-100 flex items-start gap-3">
+                      <i className="fa-solid fa-circle-exclamation mt-0.5"></i> <span>{loginError}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleLogin} className="space-y-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t.schoolCode}</label>
+                      <div className="relative group">
+                        <i className="fa-solid fa-building absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors"></i>
+                        <input 
+                          type="text" 
+                          required
+                          value={loginForm.schoolCode}
+                          onChange={(e) => setLoginForm({...loginForm, schoolCode: e.target.value})}
+                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" 
+                          placeholder="เช่น 1001 หรือ 1002"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t.username}</label>
+                      <div className="relative group">
+                        <i className="fa-regular fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors"></i>
+                        <input 
+                          type="text" 
+                          required
+                          value={loginForm.username}
+                          onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
+                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" 
+                          placeholder="admin"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-sm font-semibold text-slate-700">{t.password}</label>
+                      </div>
+                      <div className="relative group">
+                        <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors"></i>
+                        <input 
+                          type="password" 
+                          required
+                          value={loginForm.password}
+                          onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" 
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </div>
+                    <button type="submit" disabled={isLoading} className="w-full bg-brand-primary hover:bg-indigo-700 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-brand-primary/30 mt-8 flex justify-center items-center gap-2">
+                      {isLoading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <>{t.loginBtn} <i className="fa-solid fa-arrow-right ml-1"></i></>}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // ----------------------------------------------------
+      // MAIN DASHBOARD LAYOUT
+      // ----------------------------------------------------
+      return (
+        <div className="flex h-screen bg-brand-light font-sans text-slate-800 overflow-hidden">
+          
+          <aside className="w-72 bg-brand-navy text-slate-300 flex flex-col shadow-2xl relative z-20 transition-all">
+            <div className="p-6 flex items-center gap-4">
+              {schoolInfo?.logo ? (
+                <img src={schoolInfo.logo} alt="School Logo" className="w-10 h-10 rounded-xl object-cover bg-white p-0.5 shadow-glow shrink-0" onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+              ) : null}
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-gold to-yellow-600 items-center justify-center text-brand-navy font-bold text-lg shadow-glow shrink-0" style={{ display: schoolInfo?.logo ? 'none' : 'flex' }}>QA</div>
+              <div className="overflow-hidden">
+                <h1 className="font-bold text-white truncate tracking-wide">QA Workspace</h1>
+                <p className="text-xs text-slate-400 truncate mt-1 opacity-80">{schoolInfo?.name}</p>
+              </div>
+            </div>
+            
+            <nav className="flex-1 overflow-y-auto px-4 py-2 space-y-1">
+              <p className="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 mt-2">Menu</p>
+              {visibleMenu.map((menu) => (
+                <button 
+                  key={menu.id}
+                  onClick={() => setActiveMenu(menu.id)}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 group ${
+                    activeMenu === menu.id 
+                      ? 'bg-brand-primary text-white shadow-glow font-medium' 
+                      : 'hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <i className={`${menu.icon} w-5 text-center text-lg ${activeMenu === menu.id ? 'text-white' : 'text-slate-400 group-hover:text-brand-gold'} transition-colors`}></i>
+                  <span className="text-sm">{menu.label}</span>
+                </button>
+              ))}
+            </nav>
+            
+            <div className="p-5 border-t border-slate-800 mt-auto bg-slate-900/50">
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{t.role}</span>
+                <div className="relative">
+                  <select 
+                    value={role} 
+                    onChange={(e) => { setRole(e.target.value); setActiveMenu('dashboard'); }}
+                    className="w-full bg-slate-800 text-white border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary appearance-none cursor-pointer hover:bg-slate-700 transition"
+                  >
+                    <option value="Super Admin">Super Admin</option>
+                    <option value="QA Admin">QA Admin</option>
+                    <option value="Director">Director</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Teacher">Teacher</option>
+                  </select>
+                  <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <main className="flex-1 flex flex-col min-w-0 bg-brand-light relative">
+            <header className="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-slate-800 tracking-tight">{menuItems.find(m => m.id === activeMenu)?.label}</h2>
+              </div>
+              
+              <div className="flex items-center gap-5">
+                <div className="hidden lg:flex items-center gap-2.5 bg-slate-50 px-4 py-2 rounded-full border border-slate-200 text-sm font-semibold text-slate-700">
+                  {schoolInfo?.logo ? (
+                    <img src={schoolInfo.logo} alt="Logo" className="w-6 h-6 rounded-full object-cover border border-slate-200" />
+                  ) : (
+                    <i className="fa-solid fa-building-columns text-brand-primary"></i>
+                  )}
+                  <span>{schoolInfo?.name}</span>
+                </div>
+
+                <div className="w-px h-6 bg-slate-200 hidden lg:block"></div>
+
+                <button onClick={toggleLanguage} className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 transition">
+                  <span className="text-xs font-bold">{lang === 'th' ? 'EN' : 'TH'}</span>
+                </button>
+                
+                <button className="relative flex items-center justify-center w-10 h-10 rounded-full bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 transition">
+                  <i className="fa-regular fa-bell"></i>
+                  <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
+                </button>
+                
+                <div className="flex items-center gap-3 pl-2 cursor-pointer group">
+                  <div className="w-10 h-10 rounded-full bg-brand-navy text-brand-gold flex items-center justify-center font-bold shadow-md group-hover:ring-4 ring-brand-primary/20 transition-all">{role.charAt(0)}</div>
+                  <div className="hidden md:block">
+                    <p className="text-sm font-bold text-slate-800 leading-tight">Admin User</p>
+                    <p className="text-xs text-slate-500">{role}</p>
+                  </div>
+                  <i className="fa-solid fa-chevron-down text-xs text-slate-400 ml-1 hidden md:block"></i>
+                </div>
+
+                <button onClick={handleLogout} className="ml-2 w-10 h-10 flex items-center justify-center rounded-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition" title={t.logout}>
+                  <i className="fa-solid fa-power-off"></i>
+                </button>
+              </div>
+            </header>
+
+            <div className="flex-1 overflow-y-auto p-8 scroll-smooth">
+              <div className="max-w-7xl mx-auto">
+                
+                {/* 1. Dashboard View */}
+                {activeMenu === 'dashboard' && (
+                  <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div>
+                      <h3 className="text-2xl font-bold text-slate-800">สวัสดี, ยินดีต้อนรับกลับมา 👋</h3>
+                      <p className="text-slate-500 mt-1">นี่คือภาพรวมโครงการและงบประมาณของคุณในวันนี้</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                      <StatCard title={t.totalBudget} value="฿11,780,000" colorClass="bg-blue-50 text-brand-primary" icon="fa-solid fa-sack-dollar" />
+                      <StatCard title={t.usedBudget} value="฿7,506,000" colorClass="bg-emerald-50 text-emerald-600" icon="fa-solid fa-money-bill-trend-up" />
+                      <StatCard title={t.pendingBudget} value="฿1,200,000" colorClass="bg-amber-50 text-amber-600" icon="fa-solid fa-hourglass-half" />
+                      <StatCard title={t.totalProjects} value="24" colorClass="bg-purple-50 text-purple-600" icon="fa-solid fa-layer-group" />
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                      <div className="xl:col-span-2 bg-white p-6 md:p-8 rounded-2xl shadow-soft border border-slate-100 flex flex-col">
+                        <div className="flex justify-between items-center mb-6">
+                          <div>
+                            <h3 className="text-lg font-bold text-slate-800">{t.budgetOverview}</h3>
+                            <p className="text-sm text-slate-500">ข้อมูลอัปเดตแบบ Real-time</p>
+                          </div>
+                        </div>
+                        <div className="flex-1 min-h-[300px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 13}} dy={10} />
+                              <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 13}} tickFormatter={(value) => `฿${value/1000000}M`} />
+                              <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)'}} formatter={(value) => new Intl.NumberFormat('th-TH').format(value) + ' บาท'} />
+                              <Legend iconType="circle" wrapperStyle={{paddingTop: '20px', fontSize: '14px'}} />
+                              <Bar dataKey="budget" name="งบจัดสรร (Allocated)" fill="#e2e8f0" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                              <Bar dataKey="used" name="เบิกจ่ายแล้ว (Used)" fill="#4f46e5" radius={[6, 6, 0, 0]} maxBarSize={50} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-6 md:p-8 rounded-2xl shadow-soft border border-slate-100 flex flex-col">
+                        <div className="mb-6">
+                          <h3 className="text-lg font-bold text-slate-800">{t.projectProgress}</h3>
+                          <p className="text-sm text-slate-500">ติดตามความก้าวหน้าโครงการ</p>
+                        </div>
+                        <div className="space-y-6 flex-1">
+                          {projectsData.map(proj => (
+                            <div key={proj.id} className="group">
+                              <div className="flex justify-between items-end mb-2">
+                                <span className="font-semibold text-slate-700 text-sm truncate pr-4 group-hover:text-brand-primary transition-colors">{proj.name}</span>
+                                <span className={`font-bold text-sm ${proj.progress >= proj.target ? 'text-emerald-600' : 'text-brand-primary'}`}>{proj.progress}%</span>
+                              </div>
+                              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-1000 relative ${proj.progress >= proj.target ? 'bg-emerald-500' : 'bg-brand-primary'}`} style={{ width: `${proj.progress}%` }}>
+                                  <div className="absolute top-0 right-0 bottom-0 left-0 bg-white/20 animate-pulse"></div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Project Management View */}
+                {activeMenu === 'projectMgmt' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-800">{t.projectMgmt}</h3>
+                        <p className="text-slate-500 mt-1">บริหารจัดการโครงการหลัก ตั้งค่าเป้าหมาย และจัดสรรงบประมาณ</p>
+                      </div>
+                      <button className="bg-brand-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-brand-primary/20">
+                        <i className="fa-solid fa-folder-plus"></i> {t.createProject}
+                      </button>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+                      <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h4 className="font-bold text-slate-800">{t.projectList}</h4>
+                        <div className="relative">
+                          <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                          <input type="text" placeholder="ค้นหาโครงการ..." className="border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-sm outline-none focus:border-brand-primary" />
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 text-sm">
+                              <th className="px-6 py-4 font-semibold whitespace-nowrap">{t.projectCode}</th>
+                              <th className="px-6 py-4 font-semibold">{t.projectName}</th>
+                              <th className="px-6 py-4 font-semibold text-right">{t.budget}</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.progress}</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.status}</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.action}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {projectsData.map(proj => (
+                              <tr key={proj.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="px-6 py-4 text-slate-400 font-mono text-xs">PRJ-67-00{proj.id}</td>
+                                <td className="px-6 py-4 font-bold text-slate-800">{proj.name}</td>
+                                <td className="px-6 py-4 text-slate-700 font-medium text-right">฿{(proj.id * 150000).toLocaleString()}</td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                                      <div 
+                                        className={`h-full rounded-full ${proj.progress >= proj.target ? 'bg-emerald-500' : 'bg-brand-primary'}`} 
+                                        style={{ width: `${proj.progress}%` }}
+                                      ></div>
+                                    </div>
+                                    <span className="text-xs font-bold text-slate-600 w-8">{proj.progress}%</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${proj.progress === 100 ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                                    {proj.progress === 100 ? 'เสร็จสิ้น' : 'กำลังดำเนินการ'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 flex items-center justify-center transition" title="ตั้งค่า/แก้ไขโครงการ">
+                                      <i className="fa-solid fa-sliders"></i>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Propose Activity View */}
+                {activeMenu === 'proposeActivity' && (
+                  <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="bg-slate-50 p-6 md:p-8 border-b border-slate-100 flex justify-between items-center">
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-800">{t.createActivity}</h3>
+                        <p className="text-sm text-slate-500 mt-1">กรอกรายละเอียดเพื่อขออนุมัติจัดตั้งกิจกรรมย่อย</p>
+                      </div>
+                      <button className="hidden sm:flex items-center gap-2 bg-white border border-slate-200 hover:border-brand-primary hover:text-brand-primary text-slate-600 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow">
+                        <i className="fa-solid fa-file-word text-blue-600"></i>
+                        {t.exportWord}
+                      </button>
+                    </div>
+
+                    <form className="p-6 md:p-8 space-y-6">
+                      <div className="grid grid-cols-1 gap-6">
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 mb-2">{t.selectProject} <span className="text-rose-500">*</span></label>
+                          <select className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white cursor-pointer appearance-none">
+                            <option value="">-- กรุณาเลือกโครงการหลัก --</option>
+                            <option>โครงการพัฒนาศักยภาพผู้เรียน</option>
+                            <option>โครงการปรับปรุงภูมิทัศน์โรงเรียน</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 mb-2">{t.activityName} <span className="text-rose-500">*</span></label>
+                          <input type="text" className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all" placeholder="ระบุชื่อกิจกรรมย่อย..." />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-semibold text-slate-700 mb-2">{t.budgetAmount}</label>
+                          <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">฿</span>
+                            <input type="number" className="w-full border-2 border-slate-200 rounded-xl pl-9 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all" placeholder="0.00" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-6 border-t border-slate-100 flex justify-end gap-3 mt-8">
+                        <button type="button" className="px-6 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</button>
+                        <button type="button" className="px-6 py-2.5 rounded-xl bg-brand-primary hover:bg-indigo-700 text-white font-semibold transition-all shadow-lg shadow-brand-primary/30 flex items-center gap-2">
+                          <i className="fa-solid fa-save"></i> {t.save}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* 4. Activity Management View */}
+                {activeMenu === 'activityMgmt' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-soft border border-slate-100">
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-800">{t.activityList}</h3>
+                        <p className="text-sm text-slate-500 mt-1">ติดตามสถานะและอัปเดตกระบวนการ PDCA ของกิจกรรมย่อย</p>
+                      </div>
+                      <div className="flex gap-3 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:w-72">
+                          <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                          <input type="text" placeholder={t.searchActivity} className="w-full border-2 border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" />
+                        </div>
+                        <button onClick={() => setActiveMenu('proposeActivity')} className="bg-brand-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-brand-primary/20 whitespace-nowrap">
+                          <i className="fa-solid fa-plus"></i> สร้างกิจกรรม
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 text-sm">
+                              <th className="px-6 py-4 font-semibold whitespace-nowrap">รหัสกิจกรรม</th>
+                              <th className="px-6 py-4 font-semibold min-w-[220px]">{t.activityName}</th>
+                              <th className="px-6 py-4 font-semibold min-w-[200px]">{t.selectProject}</th>
+                              <th className="px-6 py-4 font-semibold text-right">{t.budgetAmount}</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.status}</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.pdca}</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.action}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {mockActivities.map(act => (
+                              <tr key={act.id} className="hover:bg-slate-50/80 transition-colors group">
+                                <td className="px-6 py-4 text-slate-400 font-mono text-xs">{act.id}</td>
+                                <td className="px-6 py-4 font-bold text-slate-800">{act.name}</td>
+                                <td className="px-6 py-4 text-slate-600">{act.project}</td>
+                                <td className="px-6 py-4 text-slate-700 font-medium text-right">฿{act.budget.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-center">
+                                  <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold border ${getStatusStyle(act.status)}`}>{act.status}</span>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                  <span className="bg-slate-800 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm">{act.pdca}</span>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 flex items-center justify-center transition" title="ดูรายละเอียด"><i className="fa-solid fa-eye"></i></button>
+                                    <button className="w-8 h-8 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 flex items-center justify-center transition" title="แก้ไข/อัปเดต"><i className="fa-solid fa-pen-to-square"></i></button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. QA Screening View */}
+                {activeMenu === 'qaScreening' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex justify-between items-end mb-6">
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-800">{t.qaScreening}</h3>
+                        <p className="text-slate-500 mt-1">ตรวจสอบและกลั่นกรองความสอดคล้องของกิจกรรมกับมาตรฐานการศึกษา</p>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+                      <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h4 className="font-bold text-slate-800">{t.qaPendingList}</h4>
+                        <span className="bg-amber-100 text-amber-700 py-1 px-3 rounded-full text-xs font-bold">รอตรวจสอบ {mockActivities.filter(a => a.status === 'รออนุมัติ QA').length} รายการ</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 text-sm">
+                              <th className="px-6 py-4 font-semibold whitespace-nowrap">รหัสกิจกรรม</th>
+                              <th className="px-6 py-4 font-semibold">{t.activityName}</th>
+                              <th className="px-6 py-4 font-semibold">{t.selectProject}</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.action}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {mockActivities.filter(a => a.status === 'รออนุมัติ QA').map(act => (
+                              <tr key={act.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="px-6 py-4 text-slate-400 font-mono text-xs">{act.id}</td>
+                                <td className="px-6 py-4 font-bold text-slate-800">{act.name}</td>
+                                <td className="px-6 py-4 text-slate-600">{act.project}</td>
+                                <td className="px-6 py-4 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                      <i className="fa-solid fa-check"></i> ผ่าน
+                                    </button>
+                                    <button className="bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                      <i className="fa-solid fa-rotate-left"></i> ตีกลับ
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. Director Approval View */}
+                {activeMenu === 'directorApproval' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex justify-between items-end mb-6">
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-800">{t.directorApproval}</h3>
+                        <p className="text-slate-500 mt-1">พิจารณาอนุมัติโครงการและกิจกรรมที่ผ่านการกลั่นกรองจาก QA แล้ว</p>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+                      <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h4 className="font-bold text-slate-800">{t.directorPendingList}</h4>
+                        <span className="bg-brand-primary/10 text-brand-primary py-1 px-3 rounded-full text-xs font-bold">รอพิจารณา {mockActivities.filter(a => a.status === 'รออนุมัติ ผอ.').length} รายการ</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 text-sm">
+                              <th className="px-6 py-4 font-semibold whitespace-nowrap">รหัสกิจกรรม</th>
+                              <th className="px-6 py-4 font-semibold">{t.activityName}</th>
+                              <th className="px-6 py-4 font-semibold text-right">{t.budgetAmount}</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.action}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {mockActivities.filter(a => a.status === 'รออนุมัติ ผอ.').map(act => (
+                              <tr key={act.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="px-6 py-4 text-slate-400 font-mono text-xs">{act.id}</td>
+                                <td className="px-6 py-4 font-bold text-slate-800">{act.name}</td>
+                                <td className="px-6 py-4 text-slate-700 font-medium text-right">฿{act.budget.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <button className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-emerald-500/30 flex items-center gap-2">
+                                      <i className="fa-solid fa-signature"></i> อนุมัติ
+                                    </button>
+                                    <button className="bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-rose-500/30 flex items-center gap-2">
+                                      <i className="fa-solid fa-xmark"></i> ไม่อนุมัติ
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 7. Budget Request View */}
+                {activeMenu === 'budgetRequest' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-800">{t.budgetRequest}</h3>
+                        <p className="text-slate-500 mt-1">สร้างคำขอเบิกเงินสำหรับกิจกรรมที่ได้รับอนุมัติแล้ว</p>
+                      </div>
+                      <button className="bg-brand-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-brand-primary/20">
+                        <i className="fa-solid fa-file-invoice-dollar"></i> {t.createBudgetReq}
+                      </button>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+                      <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                        <h4 className="font-bold text-slate-800">{t.reqBudgetList}</h4>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 text-sm">
+                              <th className="px-6 py-4 font-semibold whitespace-nowrap">เลขที่คำขอ</th>
+                              <th className="px-6 py-4 font-semibold">{t.activityName}</th>
+                              <th className="px-6 py-4 font-semibold">วันที่ขอเบิก</th>
+                              <th className="px-6 py-4 font-semibold text-right">ยอดเงิน (บาท)</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.status}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {mockBudgetRequests.map(req => (
+                              <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="px-6 py-4 text-slate-400 font-mono text-xs">{req.id}</td>
+                                <td className="px-6 py-4 font-bold text-slate-800">{req.activity}</td>
+                                <td className="px-6 py-4 text-slate-600">{req.date}</td>
+                                <td className="px-6 py-4 text-slate-700 font-medium text-right">฿{req.amount.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-center">
+                                  <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold border ${getStatusStyle(req.status)}`}>{req.status}</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 8. User Management View */}
+                {activeMenu === 'users' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-800">{t.users}</h3>
+                        <p className="text-slate-500 mt-1">จัดการรายชื่อผู้ใช้งาน บทบาท และสิทธิ์การเข้าถึงระบบ</p>
+                      </div>
+                      <button className="bg-brand-navy text-brand-gold px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-slate-800 transition-all shadow-lg shadow-brand-navy/20">
+                        <i className="fa-solid fa-user-plus"></i> {t.addUser}
+                      </button>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+                      <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h4 className="font-bold text-slate-800">{t.userList}</h4>
+                        <div className="relative">
+                          <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                          <input type="text" placeholder="ค้นหาผู้ใช้..." className="border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-sm outline-none focus:border-brand-primary" />
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 text-sm">
+                              <th className="px-6 py-4 font-semibold">{t.fullname}</th>
+                              <th className="px-6 py-4 font-semibold">{t.username}</th>
+                              <th className="px-6 py-4 font-semibold">บทบาท (Role)</th>
+                              <th className="px-6 py-4 font-semibold">{t.lastLogin}</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.status}</th>
+                              <th className="px-6 py-4 font-semibold text-center">{t.action}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                            {mockUsers.map(user => (
+                              <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="px-6 py-4 font-bold text-slate-800 flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-indigo-100 text-brand-primary flex items-center justify-center font-bold text-xs shrink-0">{user.name.charAt(0)}</div>
+                                  <span className="truncate">{user.name}</span>
+                                </td>
+                                <td className="px-6 py-4 text-slate-500 font-mono text-xs">{user.username}</td>
+                                <td className="px-6 py-4">
+                                  <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-200 whitespace-nowrap">{user.role}</span>
+                                </td>
+                                <td className="px-6 py-4 text-slate-500 text-xs">{user.lastLogin}</td>
+                                <td className="px-6 py-4 text-center">
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${user.status === 'Active' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 bg-slate-100'}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${user.status === 'Active' ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                                    {user.status}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                  <button className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 inline-flex items-center justify-center transition" title="แก้ไขผู้ใช้งาน"><i className="fa-solid fa-pen-to-square"></i></button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 9. Settings View */}
+                {activeMenu === 'settings' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex justify-between items-end mb-6">
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-800">{t.settings}</h3>
+                        <p className="text-slate-500 mt-1">จัดการข้อมูลสถานศึกษา โลโก้ และสิทธิ์การเข้าถึงเมนูต่างๆ</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+                      <div className="w-full md:w-64 bg-slate-50 border-r border-slate-100 p-6 flex flex-col gap-2">
+                        <button onClick={() => setSettingsTab('general')} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${settingsTab === 'general' ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20' : 'text-slate-600 hover:bg-slate-200'}`}>
+                          <i className="fa-solid fa-school w-5 text-center"></i> {t.generalSettings}
+                        </button>
+                        <button onClick={() => setSettingsTab('menus')} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${settingsTab === 'menus' ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20' : 'text-slate-600 hover:bg-slate-200'}`}>
+                          <i className="fa-solid fa-layer-group w-5 text-center"></i> {t.menuManagement}
+                        </button>
+                      </div>
+
+                      <div className="flex-1 p-8">
+                        {settingsSuccess && (
+                          <div className="mb-6 bg-emerald-50 text-emerald-600 p-4 rounded-xl text-sm border border-emerald-100 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                            <i className="fa-solid fa-circle-check text-lg"></i><span className="font-medium">{t.saveSettingsSuccess}</span>
+                          </div>
+                        )}
+
+                        <form onSubmit={handleSaveSettings}>
+                          {settingsTab === 'general' && (
+                            <div className="space-y-6 animate-in fade-in duration-300">
+                              <h4 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-4 mb-6">{t.schoolProfile}</h4>
+                              
+                              <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">{t.schoolName}</label>
+                                <input type="text" value={settingsForm.name} onChange={(e) => setSettingsForm({...settingsForm, name: e.target.value})} className="w-full max-w-md border-2 border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all" />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">{t.schoolLogoUrl}</label>
+                                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                                  <input type="url" placeholder="https://example.com/logo.png" value={settingsForm.logo} onChange={(e) => setSettingsForm({...settingsForm, logo: e.target.value})} className="w-full max-w-md border-2 border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all" />
+                                  {settingsForm.logo && (
+                                    <div className="w-16 h-16 rounded-xl border-2 border-slate-200 overflow-hidden shrink-0 bg-slate-50 flex items-center justify-center p-1 shadow-sm">
+                                      <img src={settingsForm.logo} alt="Preview" className="w-full h-full object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {settingsTab === 'menus' && (
+                            <div className="space-y-6 animate-in fade-in duration-300">
+                              <h4 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-4 mb-6">{t.menuManagement}</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {menuItems.map(menu => {
+                                  const isLocked = menu.id === 'dashboard' || menu.id === 'settings';
+                                  const isActive = settingsForm.activeMenus.includes(menu.id);
+                                  
+                                  return (
+                                    <label key={menu.id} className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${isActive ? 'border-brand-primary bg-indigo-50/30' : 'border-slate-200 bg-white opacity-60'} ${isLocked ? 'pointer-events-none opacity-50 grayscale' : 'hover:border-indigo-300'}`}>
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isActive ? 'bg-brand-primary text-white shadow-md shadow-brand-primary/20' : 'bg-slate-100 text-slate-400'}`}><i className={menu.icon}></i></div>
+                                        <div>
+                                          <p className={`font-semibold text-sm ${isActive ? 'text-slate-800' : 'text-slate-500'}`}>{menu.label}</p>
+                                          <p className="text-xs text-slate-400">{isLocked ? 'จำเป็นสำหรับระบบ' : t.enableMenu}</p>
+                                        </div>
+                                      </div>
+                                      <div className={`w-12 h-6 rounded-full relative transition-colors ${isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                                        <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${isActive ? 'left-7' : 'left-1'}`}></div>
+                                      </div>
+                                      {!isLocked && <input type="checkbox" className="hidden" checked={isActive} onChange={() => handleToggleMenu(menu.id)} />}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="mt-8 pt-6 border-t border-slate-100">
+                            <button type="submit" className="bg-brand-primary hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-xl transition-all shadow-lg shadow-brand-primary/30 flex items-center gap-2">
+                              <i className="fa-solid fa-save"></i> {t.save}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fallback for undeveloped pages like managerApproval */}
+                {activeMenu !== 'dashboard' && activeMenu !== 'projectMgmt' && activeMenu !== 'proposeActivity' && activeMenu !== 'activityMgmt' && activeMenu !== 'qaScreening' && activeMenu !== 'directorApproval' && activeMenu !== 'budgetRequest' && activeMenu !== 'users' && activeMenu !== 'settings' && (
+                  <div className="flex flex-col items-center justify-center h-[60vh] text-slate-400 animate-in fade-in duration-500">
+                    <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6">
+                      <i className="fa-solid fa-person-digging text-4xl text-slate-300"></i>
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-700 mb-2">โครงสร้างพร้อมสำหรับการพัฒนาเพิ่มเติม</h3>
+                    <p className="text-sm">หน้า "{menuItems.find(m => m.id === activeMenu)?.label}"</p>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
