@@ -66,11 +66,10 @@
 
     // ==========================================
     // ⚙️ นำ URL ของ Google Apps Script มาวางที่นี่
-    // ⚠️ คำเตือน: ต้องเป็นลิงก์ "Web App" ที่ลงท้ายด้วย /exec เท่านั้น ไม่ใช่ลิงก์ /edit
     // ==========================================
     const GOOGLE_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyrKMDu9a2pD1MHyRlczlAbZSIINRmeCJCmkBEXQga-w8ukdmTDx6tTHa6T_bPgETU/exec';
 
-    // --- Mock Data ---
+    // --- Static Data ---
     const chartData = [
       { name: 'วิชาการ', budget: 4000000, used: 2400000 },
       { name: 'บุคลากร', budget: 3000000, used: 1398000 },
@@ -84,25 +83,11 @@
       { id: 3, name: 'โครงการส่งเสริมคุณธรรมจริยธรรม', progress: 45, target: 80 },
     ];
 
-    const mockActivities = [
-      { id: 'ACT-67-001', name: 'ค่ายวิชาการคณิตศาสตร์', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 15000, status: 'รออนุมัติ QA', pdca: 'Plan' },
-      { id: 'ACT-67-002', name: 'อบรมมารยาทไทย', project: 'โครงการส่งเสริมคุณธรรมจริยธรรม', budget: 5000, status: 'กำลังดำเนินการ', pdca: 'Do' },
-      { id: 'ACT-67-003', name: 'ปรับปรุงสวนหย่อมหน้าอาคาร', project: 'โครงการปรับปรุงภูมิทัศน์โรงเรียน', budget: 50000, status: 'เสร็จสิ้น', pdca: 'Act' },
-      { id: 'ACT-67-004', name: 'ทัศนศึกษา ม.3', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 120000, status: 'ร่าง', pdca: '-' },
-      { id: 'ACT-67-005', name: 'จัดซื้ออุปกรณ์วิทยาศาสตร์', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 45000, status: 'รออนุมัติ ผอ.', pdca: 'Plan' },
-      { id: 'ACT-67-006', name: 'อบรมครูแกนนำ', project: 'โครงการส่งเสริมคุณธรรมจริยธรรม', budget: 20000, status: 'รออนุมัติ ผอ.', pdca: 'Plan' },
-    ];
-
     const mockUsers = [
       { id: 1, name: 'สมชาย รักเรียน', username: 'somchai.r', role: 'Teacher', status: 'Active', lastLogin: '10 นาทีที่แล้ว' },
       { id: 2, name: 'สมศรี มีความรู้', username: 'somsri.m', role: 'QA Admin', status: 'Active', lastLogin: '1 ชั่วโมงที่แล้ว' },
       { id: 3, name: 'อำนวย สั่งการ', username: 'amnuay.s', role: 'Director', status: 'Active', lastLogin: 'วันนี้ 08:30' },
       { id: 4, name: 'วิชัย คุมเงิน', username: 'wichai.k', role: 'Manager', status: 'Inactive', lastLogin: '3 วันที่แล้ว' },
-    ];
-
-    const mockBudgetRequests = [
-      { id: 'REQ-67-001', activity: 'อบรมมารยาทไทย', amount: 5000, date: '10/10/2024', status: 'รออนุมัติ (Manager)' },
-      { id: 'REQ-67-002', activity: 'ปรับปรุงสวนหย่อมหน้าอาคาร', amount: 25000, date: '05/10/2024', status: 'อนุมัติแล้ว' },
     ];
 
     const getStatusStyle = (status) => {
@@ -283,7 +268,23 @@
       const [settingsForm, setSettingsForm] = useState({ name: '', logo: '', activeMenus: [] });
       const [settingsSuccess, setSettingsSuccess] = useState(false);
 
-      // State สำหรับฟอร์มสร้างกิจกรรม
+      // ==========================================
+      // 🟢 INTERACTIVE STATE: จัดการข้อมูลแบบโต้ตอบได้จริง
+      // ==========================================
+      const [activities, setActivities] = useState([
+        { id: 'ACT-67-001', name: 'ค่ายวิชาการคณิตศาสตร์', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 15000, status: 'รออนุมัติ QA', pdca: 'Plan' },
+        { id: 'ACT-67-002', name: 'อบรมมารยาทไทย', project: 'โครงการส่งเสริมคุณธรรมจริยธรรม', budget: 5000, status: 'กำลังดำเนินการ', pdca: 'Do' },
+        { id: 'ACT-67-003', name: 'ปรับปรุงสวนหย่อมหน้าอาคาร', project: 'โครงการปรับปรุงภูมิทัศน์โรงเรียน', budget: 50000, status: 'เสร็จสิ้น', pdca: 'Act' },
+        { id: 'ACT-67-004', name: 'ทัศนศึกษา ม.3', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 120000, status: 'ร่าง', pdca: '-' },
+        { id: 'ACT-67-005', name: 'จัดซื้ออุปกรณ์วิทยาศาสตร์', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 45000, status: 'รออนุมัติ ผอ.', pdca: 'Plan' },
+        { id: 'ACT-67-006', name: 'อบรมครูแกนนำ', project: 'โครงการส่งเสริมคุณธรรมจริยธรรม', budget: 20000, status: 'รออนุมัติ ผอ.', pdca: 'Plan' },
+      ]);
+
+      const [budgetRequests, setBudgetRequests] = useState([
+        { id: 'REQ-67-001', activity: 'อบรมมารยาทไทย', amount: 5000, date: '10/10/2024', status: 'รออนุมัติ (Manager)' },
+        { id: 'REQ-67-002', activity: 'ปรับปรุงสวนหย่อมหน้าอาคาร', amount: 25000, date: '05/10/2024', status: 'อนุมัติแล้ว' },
+      ]);
+
       const [activityForm, setActivityForm] = useState({ project: '', name: '', budget: '' });
       const [isSubmittingActivity, setIsSubmittingActivity] = useState(false);
 
@@ -308,7 +309,6 @@
         setIsLoading(true);
         setLoginError('');
 
-        // ตรวจสอบข้อมูลจาก Mock Database (Local)
         setTimeout(() => {
           if (schoolsDb[loginForm.schoolCode]) {
             setSchoolInfo(schoolsDb[loginForm.schoolCode]);
@@ -327,7 +327,7 @@
         setActiveMenu('dashboard');
       };
 
-      // ฟังก์ชันเมื่อกดปุ่ม "บันทึกข้อมูล" กิจกรรม -> ส่งไป Google Sheets
+      // 🟢 ฟังก์ชันบันทึกกิจกรรมย่อยใหม่
       const handleProposeActivity = async (e) => {
         e.preventDefault();
         
@@ -336,19 +336,25 @@
           return;
         }
 
-        if (GOOGLE_WEB_APP_URL === 'นำลิงก์_Web_App_ที่ลงท้ายด้วย_exec_มาวางตรงนี้') {
-          alert('⚠️ คุณยังไม่ได้ใส่ URL ของ Google Apps Script ที่ลงท้ายด้วย /exec โค้ดจะจำลองการทำงานเฉยๆ นะครับ');
-          setActivityForm({ project: '', name: '', budget: '' }); 
-          setActiveMenu('activityMgmt');
-          return;
-        }
-
         setIsSubmittingActivity(true);
 
+        // 1. เพิ่มกิจกรรมใหม่ลงในตารางของเว็บทันที (เพื่อให้ใช้งานได้จริง)
+        const newActivity = {
+          id: `ACT-67-${String(activities.length + 1).padStart(3, '0')}`,
+          name: activityForm.name,
+          project: activityForm.project,
+          budget: parseFloat(activityForm.budget) || 0,
+          status: 'รออนุมัติ QA',
+          pdca: 'Plan'
+        };
+        
+        setActivities([newActivity, ...activities]);
+
+        // 2. ส่งข้อมูลบันทึกซ่อนไว้ที่ Google Sheets
         try {
           await fetch(GOOGLE_WEB_APP_URL, {
             method: 'POST',
-            mode: 'no-cors', // ใช้โหมดนี้เพื่อเลี่ยงปัญหา Browser CORS Block
+            mode: 'no-cors',
             headers: {
               'Content-Type': 'application/json',
             },
@@ -361,17 +367,38 @@
               pdca: 'Plan'
             })
           });
-
-          alert('บันทึกข้อมูลกิจกรรมลง Google Sheets เรียบร้อยแล้ว! 🎉');
+          
+          alert('บันทึกข้อมูลกิจกรรมลงระบบ และ Google Sheets เรียบร้อยแล้ว! 🎉');
           setActivityForm({ project: '', name: '', budget: '' }); 
-          setActiveMenu('activityMgmt');
+          setActiveMenu('activityMgmt'); // ย้ายไปหน้าจัดการกิจกรรมเพื่อดูผลลัพธ์ทันที
 
         } catch (error) {
           console.error('Error saving:', error);
-          alert('ส่งข้อมูลสำเร็จ (แต่อาจจะติดหน้าจอโหลด ให้ไปเช็คใน Google Sheets)');
+          alert('เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheets แต่ข้อมูลถูกเพิ่มในหน้าเว็บแล้วชั่วคราว');
+          setActiveMenu('activityMgmt');
         }
         
         setIsSubmittingActivity(false);
+      };
+
+      // 🟢 ฟังก์ชันสำหรับหน้า QA การกลั่นกรอง
+      const handleQAStatusUpdate = (id, newStatus) => {
+        setActivities(activities.map(act => 
+          act.id === id ? { ...act, status: newStatus } : act
+        ));
+        if (newStatus === 'รออนุมัติ ผอ.') {
+          alert('อนุมัติผ่าน QA เรียบร้อยแล้ว! ข้อมูลถูกส่งต่อไปยัง ผู้อำนวยการ');
+        } else {
+          alert('ทำรายการตีกลับเรียบร้อยแล้ว');
+        }
+      };
+
+      // 🟢 ฟังก์ชันสำหรับหน้า ผอ. อนุมัติ
+      const handleDirectorStatusUpdate = (id, newStatus) => {
+        setActivities(activities.map(act => 
+          act.id === id ? { ...act, status: newStatus } : act
+        ));
+        alert(`ทำรายการ ${newStatus} เรียบร้อยแล้ว!`);
       };
 
       const menuItems = [
@@ -401,7 +428,6 @@
           activeMenus: settingsForm.activeMenus
         };
 
-        // Update Local State
         setSchoolInfo(updatedSchool);
         setSchoolsDb(prev => ({ ...prev, [updatedSchool.id]: updatedSchool }));
         
@@ -440,7 +466,7 @@
                   
                   <div className={`mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border border-emerald-500/30 text-emerald-400 bg-emerald-500/10`}>
                     <span className={`w-2 h-2 rounded-full bg-emerald-500`}></span>
-                    พร้อมใช้งาน (Local & Google Sheets)
+                    พร้อมใช้งาน (Interactive Mode)
                   </div>
                 </div>
                 <div className="relative z-10 mt-12 md:mt-0">
@@ -808,7 +834,7 @@
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-soft border border-slate-100">
                       <div>
                         <h3 className="text-xl font-bold text-slate-800">{t.activityList}</h3>
-                        <p className="text-sm text-slate-500 mt-1">ติดตามสถานะและอัปเดตกระบวนการ PDCA ของกิจกรรมย่อย</p>
+                        <p className="text-sm text-slate-500 mt-1">ติดตามสถานะและอัปเดตกระบวนการ PDCA ของกิจกรรมย่อยแบบเรียลไทม์</p>
                       </div>
                       <div className="flex gap-3 w-full sm:w-auto">
                         <div className="relative flex-1 sm:w-72">
@@ -836,7 +862,7 @@
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 text-sm">
-                            {mockActivities.map(act => (
+                            {activities.map(act => (
                               <tr key={act.id} className="hover:bg-slate-50/80 transition-colors group">
                                 <td className="px-6 py-4 text-slate-400 font-mono text-xs">{act.id}</td>
                                 <td className="px-6 py-4 font-bold text-slate-800">{act.name}</td>
@@ -875,7 +901,7 @@
                     <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
                       <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                         <h4 className="font-bold text-slate-800">{t.qaPendingList}</h4>
-                        <span className="bg-amber-100 text-amber-700 py-1 px-3 rounded-full text-xs font-bold">รอตรวจสอบ {mockActivities.filter(a => a.status === 'รออนุมัติ QA').length} รายการ</span>
+                        <span className="bg-amber-100 text-amber-700 py-1 px-3 rounded-full text-xs font-bold">รอตรวจสอบ {activities.filter(a => a.status === 'รออนุมัติ QA').length} รายการ</span>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
@@ -888,17 +914,19 @@
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 text-sm">
-                            {mockActivities.filter(a => a.status === 'รออนุมัติ QA').map(act => (
+                            {activities.filter(a => a.status === 'รออนุมัติ QA').length === 0 ? (
+                               <tr><td colSpan="4" className="text-center py-8 text-slate-400">ไม่มีกิจกรรมรอตรวจสอบ</td></tr>
+                            ) : activities.filter(a => a.status === 'รออนุมัติ QA').map(act => (
                               <tr key={act.id} className="hover:bg-slate-50/80 transition-colors">
                                 <td className="px-6 py-4 text-slate-400 font-mono text-xs">{act.id}</td>
                                 <td className="px-6 py-4 font-bold text-slate-800">{act.name}</td>
                                 <td className="px-6 py-4 text-slate-600">{act.project}</td>
                                 <td className="px-6 py-4 text-center">
                                   <div className="flex items-center justify-center gap-2">
-                                    <button className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                    <button onClick={() => handleQAStatusUpdate(act.id, 'รออนุมัติ ผอ.')} className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
                                       <i className="fa-solid fa-check"></i> ผ่าน
                                     </button>
-                                    <button className="bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
+                                    <button onClick={() => handleQAStatusUpdate(act.id, 'ตีกลับ')} className="bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1">
                                       <i className="fa-solid fa-rotate-left"></i> ตีกลับ
                                     </button>
                                   </div>
@@ -924,7 +952,7 @@
                     <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
                       <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                         <h4 className="font-bold text-slate-800">{t.directorPendingList}</h4>
-                        <span className="bg-brand-primary/10 text-brand-primary py-1 px-3 rounded-full text-xs font-bold">รอพิจารณา {mockActivities.filter(a => a.status === 'รออนุมัติ ผอ.').length} รายการ</span>
+                        <span className="bg-brand-primary/10 text-brand-primary py-1 px-3 rounded-full text-xs font-bold">รอพิจารณา {activities.filter(a => a.status === 'รออนุมัติ ผอ.').length} รายการ</span>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
@@ -937,17 +965,19 @@
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 text-sm">
-                            {mockActivities.filter(a => a.status === 'รออนุมัติ ผอ.').map(act => (
+                             {activities.filter(a => a.status === 'รออนุมัติ ผอ.').length === 0 ? (
+                               <tr><td colSpan="4" className="text-center py-8 text-slate-400">ไม่มีกิจกรรมรอพิจารณา</td></tr>
+                            ) : activities.filter(a => a.status === 'รออนุมัติ ผอ.').map(act => (
                               <tr key={act.id} className="hover:bg-slate-50/80 transition-colors">
                                 <td className="px-6 py-4 text-slate-400 font-mono text-xs">{act.id}</td>
                                 <td className="px-6 py-4 font-bold text-slate-800">{act.name}</td>
                                 <td className="px-6 py-4 text-slate-700 font-medium text-right">฿{act.budget.toLocaleString()}</td>
                                 <td className="px-6 py-4 text-center">
                                   <div className="flex items-center justify-center gap-2">
-                                    <button className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-emerald-500/30 flex items-center gap-2">
+                                    <button onClick={() => handleDirectorStatusUpdate(act.id, 'กำลังดำเนินการ')} className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-emerald-500/30 flex items-center gap-2">
                                       <i className="fa-solid fa-signature"></i> อนุมัติ
                                     </button>
-                                    <button className="bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-rose-500/30 flex items-center gap-2">
+                                    <button onClick={() => handleDirectorStatusUpdate(act.id, 'ไม่อนุมัติ')} className="bg-rose-50 text-rose-600 hover:bg-rose-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-rose-500/30 flex items-center gap-2">
                                       <i className="fa-solid fa-xmark"></i> ไม่อนุมัติ
                                     </button>
                                   </div>
@@ -990,7 +1020,7 @@
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 text-sm">
-                            {mockBudgetRequests.map(req => (
+                            {budgetRequests.map(req => (
                               <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
                                 <td className="px-6 py-4 text-slate-400 font-mono text-xs">{req.id}</td>
                                 <td className="px-6 py-4 font-bold text-slate-800">{req.activity}</td>
