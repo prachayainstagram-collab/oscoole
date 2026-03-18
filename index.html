@@ -293,6 +293,10 @@
       const [selectedAct, setSelectedAct] = useState(null);
       const [confirmModal, setConfirmModal] = useState(null);
       const [searchAct, setSearchAct] = useState('');
+      const [userSearch, setUserSearch] = useState('');
+      const [showUserForm, setShowUserForm] = useState(false);
+      const [userForm, setUserForm] = useState({ name:'', username:'', password:'', role:'Teacher' });
+      const [editingUser, setEditingUser] = useState(null); // username ที่กำลังแก้ไข
 
       // Activity Form
       const [activityForm, setActivityForm] = useState({ project:'', name:'', budget:'', description:'' });
@@ -589,6 +593,51 @@
       };
 
       // ----------------------------------------
+      // ── User Management (ภายในโรงเรียน) ─────────────────────
+      const schoolUsers = schoolInfo ? (schoolsDb[schoolInfo.id]?.users || []) : [];
+
+      const handleAddUser = (e) => {
+        e.preventDefault();
+        if (!userForm.name || !userForm.username || !userForm.password) { showToast('กรุณากรอกข้อมูลให้ครบ','error'); return; }
+        const exists = schoolUsers.find(u => u.username === userForm.username);
+        if (exists && !editingUser) { showToast('ชื่อผู้ใช้นี้มีอยู่แล้ว','error'); return; }
+        setSchoolsDb(prev => {
+          const school = prev[schoolInfo.id];
+          let users;
+          if (editingUser) {
+            users = school.users.map(u => u.username === editingUser ? {...userForm} : u);
+          } else {
+            users = [...(school.users||[]), {...userForm}];
+          }
+          return { ...prev, [schoolInfo.id]: { ...school, users } };
+        });
+        setSchoolInfo(prev => {
+          const users = editingUser
+            ? prev.users.map(u => u.username === editingUser ? {...userForm} : u)
+            : [...(prev.users||[]), {...userForm}];
+          return { ...prev, users };
+        });
+        showToast(editingUser ? 'แก้ไขผู้ใช้งานแล้ว ✅' : 'เพิ่มผู้ใช้งานแล้ว ✅');
+        setUserForm({ name:'', username:'', password:'', role:'Teacher' });
+        setEditingUser(null); setShowUserForm(false);
+      };
+
+      const handleDeleteUser = (username) => {
+        if (username === currentUser?.username) { showToast('ไม่สามารถลบบัญชีตัวเองได้','error'); return; }
+        setSchoolsDb(prev => {
+          const school = prev[schoolInfo.id];
+          return { ...prev, [schoolInfo.id]: { ...school, users: school.users.filter(u => u.username !== username) } };
+        });
+        setSchoolInfo(prev => ({ ...prev, users: prev.users.filter(u => u.username !== username) }));
+        showToast('ลบผู้ใช้งานแล้ว');
+      };
+
+      const handleEditUser = (user) => {
+        setUserForm({ name: user.name, username: user.username, password: user.password, role: user.role });
+        setEditingUser(user.username);
+        setShowUserForm(true);
+      };
+
       // Settings
       // ----------------------------------------
       const handleSaveSettings = (e) => {
@@ -1780,21 +1829,88 @@
                 {/* ── USERS ── */}
                 {activeMenu === 'users' && (
                   <div className="space-y-5 animate-fadeInUp">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div>
                         <h3 className="text-xl font-bold text-slate-800">จัดการผู้ใช้งาน</h3>
-                        <p className="text-slate-400 text-sm mt-0.5">บริหารบัญชีผู้ใช้งาน บทบาท และสิทธิ์การเข้าถึง</p>
+                        <p className="text-slate-400 text-sm mt-0.5">บริหารบัญชีผู้ใช้งาน บทบาท และสิทธิ์การเข้าถึงของ {schoolInfo?.name}</p>
                       </div>
-                      <button className="bg-brand-navy text-brand-gold px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-slate-800 transition shadow-lg shadow-brand-navy/20">
-                        <i className="fa-solid fa-user-plus"></i> เพิ่มผู้ใช้งาน
+                      <button onClick={()=>{ setUserForm({name:'',username:'',password:'',role:'Teacher'}); setEditingUser(null); setShowUserForm(v=>!v); }}
+                        className="bg-brand-navy text-brand-gold px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-slate-800 transition shadow-lg shadow-brand-navy/20 whitespace-nowrap">
+                        <i className={`fa-solid ${showUserForm?'fa-minus':'fa-user-plus'}`}></i>
+                        {showUserForm ? 'ยุบฟอร์ม' : 'เพิ่มผู้ใช้งาน'}
                       </button>
                     </div>
+
+                    {/* Add / Edit User Form */}
+                    {showUserForm && (
+                      <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden animate-fadeInUp">
+                        <div className="bg-gradient-to-r from-brand-navy to-slate-700 p-5 text-white">
+                          <h4 className="font-bold">{editingUser ? 'แก้ไขผู้ใช้งาน' : 'เพิ่มผู้ใช้งานใหม่'}</h4>
+                          <p className="text-slate-300 text-xs mt-0.5">{schoolInfo?.name}</p>
+                        </div>
+                        <form onSubmit={handleAddUser} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">ชื่อ-นามสกุล <span className="text-rose-500">*</span></label>
+                            <input type="text" required value={userForm.name} onChange={e=>setUserForm({...userForm,name:e.target.value})}
+                              className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition"
+                              placeholder="ชื่อ นามสกุล" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">ชื่อผู้ใช้งาน (username) <span className="text-rose-500">*</span></label>
+                            <input type="text" required value={userForm.username} onChange={e=>setUserForm({...userForm,username:e.target.value})}
+                              disabled={!!editingUser}
+                              className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition font-mono disabled:bg-slate-50 disabled:text-slate-400"
+                              placeholder="username" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">รหัสผ่าน <span className="text-rose-500">*</span></label>
+                            <input type="text" required value={userForm.password} onChange={e=>setUserForm({...userForm,password:e.target.value})}
+                              className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition font-mono"
+                              placeholder="รหัสผ่าน" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">บทบาท (Role) <span className="text-rose-500">*</span></label>
+                            <select required value={userForm.role} onChange={e=>setUserForm({...userForm,role:e.target.value})}
+                              className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition appearance-none">
+                              {['Super Admin','Director','QA Admin','Manager','Teacher'].map(r=><option key={r}>{r}</option>)}
+                            </select>
+                          </div>
+                          <div className="md:col-span-2 flex justify-end gap-3 pt-2">
+                            <button type="button" onClick={()=>{ setShowUserForm(false); setEditingUser(null); }}
+                              className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-sm transition">ยกเลิก</button>
+                            <button type="submit"
+                              className="px-6 py-2.5 rounded-xl bg-brand-navy hover:bg-slate-800 text-brand-gold font-semibold text-sm transition shadow-lg flex items-center gap-2">
+                              <i className={`fa-solid ${editingUser?'fa-save':'fa-user-plus'}`}></i>
+                              {editingUser ? 'บันทึกการแก้ไข' : 'เพิ่มผู้ใช้งาน'}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
+
+                    {/* Stats row */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {['Super Admin','Director','QA Admin','Teacher','Manager'].map(r=>{
+                        const count = schoolUsers.filter(u=>u.role===r).length;
+                        if (count===0) return null;
+                        const colors = {'Super Admin':'bg-purple-50 text-purple-600','Director':'bg-indigo-50 text-indigo-600','QA Admin':'bg-amber-50 text-amber-600','Teacher':'bg-emerald-50 text-emerald-600','Manager':'bg-orange-50 text-orange-600'};
+                        return (
+                          <div key={r} className={`${colors[r]||'bg-slate-50 text-slate-600'} rounded-xl p-3 text-center`}>
+                            <p className="text-2xl font-bold">{count}</p>
+                            <p className="text-xs font-semibold mt-0.5">{r}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Users table */}
                     <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
-                      <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                        <h4 className="font-bold text-slate-800">รายชื่อผู้ใช้งาน ({mockUsers.length} คน)</h4>
+                      <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50/50">
+                        <h4 className="font-bold text-slate-800">รายชื่อผู้ใช้งาน ({schoolUsers.length} คน)</h4>
                         <div className="relative">
                           <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                          <input type="text" placeholder="ค้นหาผู้ใช้..." className="border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-sm outline-none focus:border-brand-primary" />
+                          <input type="text" placeholder="ค้นหาผู้ใช้..." value={userSearch} onChange={e=>setUserSearch(e.target.value)}
+                            className="border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-sm outline-none focus:border-brand-primary w-48" />
                         </div>
                       </div>
                       <div className="overflow-x-auto">
@@ -1803,37 +1919,59 @@
                             <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
                               <th className="px-5 py-3.5 font-semibold">ชื่อ-นามสกุล</th>
                               <th className="px-5 py-3.5 font-semibold">ชื่อผู้ใช้</th>
+                              <th className="px-5 py-3.5 font-semibold">รหัสผ่าน</th>
                               <th className="px-5 py-3.5 font-semibold">บทบาท</th>
-                              <th className="px-5 py-3.5 font-semibold">เข้าสู่ระบบล่าสุด</th>
-                              <th className="px-5 py-3.5 font-semibold text-center">สถานะ</th>
                               <th className="px-5 py-3.5 font-semibold text-center">จัดการ</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 text-sm">
-                            {mockUsers.map(user => (
-                              <tr key={user.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-5 py-4 flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-indigo-100 text-brand-primary flex items-center justify-center font-bold text-xs shrink-0">{user.name.charAt(0)}</div>
-                                  <span className="font-semibold text-slate-800">{user.name}</span>
+                            {schoolUsers.filter(u=>!userSearch||u.name?.toLowerCase().includes(userSearch.toLowerCase())||u.username?.toLowerCase().includes(userSearch.toLowerCase())).map((user,i) => (
+                              <tr key={user.username} className={`hover:bg-slate-50 transition-colors ${user.username===currentUser?.username?'bg-indigo-50/30':''}`}>
+                                <td className="px-5 py-3.5 flex items-center gap-3">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${user.username===currentUser?.username?'bg-brand-primary text-white':'bg-indigo-100 text-brand-primary'}`}>
+                                    {user.name?.charAt(0)||'?'}
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-slate-800 text-sm">{user.name}</p>
+                                    {user.username===currentUser?.username && <p className="text-xs text-brand-primary font-medium">บัญชีของคุณ</p>}
+                                  </div>
                                 </td>
-                                <td className="px-5 py-4 text-slate-500 font-mono text-xs">{user.username}</td>
-                                <td className="px-5 py-4">
-                                  <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-200">{user.role}</span>
+                                <td className="px-5 py-3.5 text-slate-500 font-mono text-xs">{user.username}</td>
+                                <td className="px-5 py-3.5">
+                                  <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded-lg text-slate-500 tracking-widest">{'•'.repeat(Math.min(user.password?.length||4,8))}</span>
                                 </td>
-                                <td className="px-5 py-4 text-slate-500 text-xs">{user.lastLogin}</td>
-                                <td className="px-5 py-4 text-center">
-                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${user.status==='Active'?'text-emerald-600 bg-emerald-50':'text-slate-500 bg-slate-100'}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${user.status==='Active'?'bg-emerald-500':'bg-slate-400'}`}></span>
-                                    {user.status}
-                                  </span>
+                                <td className="px-5 py-3.5">
+                                  {(() => {
+                                    const roleColors = {'Super Admin':'bg-purple-100 text-purple-700 border-purple-200','Director':'bg-indigo-100 text-indigo-700 border-indigo-200','QA Admin':'bg-amber-100 text-amber-700 border-amber-200','Teacher':'bg-emerald-100 text-emerald-700 border-emerald-200','Manager':'bg-orange-100 text-orange-700 border-orange-200'};
+                                    return <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${roleColors[user.role]||'bg-slate-100 text-slate-600 border-slate-200'}`}>{user.role}</span>;
+                                  })()}
                                 </td>
-                                <td className="px-5 py-4 text-center">
-                                  <button className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 inline-flex items-center justify-center transition">
-                                    <i className="fa-solid fa-pen-to-square text-sm"></i>
-                                  </button>
+                                <td className="px-5 py-3.5 text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <button onClick={()=>handleEditUser(user)}
+                                      className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 inline-flex items-center justify-center transition" title="แก้ไข">
+                                      <i className="fa-solid fa-pen-to-square text-sm"></i>
+                                    </button>
+                                    {user.username !== currentUser?.username && (
+                                      <button onClick={()=>setConfirmModal({
+                                        title:'ยืนยันการลบผู้ใช้งาน',
+                                        message:`ลบบัญชี "${user.name}" (${user.username}) ออกจากระบบ?`,
+                                        confirmLabel:'ลบ',
+                                        confirmClass:'bg-rose-500 hover:bg-rose-600',
+                                        onConfirm:()=>handleDeleteUser(user.username)
+                                      })} className="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center transition" title="ลบ">
+                                        <i className="fa-solid fa-trash text-sm"></i>
+                                      </button>
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             ))}
+                            {schoolUsers.length === 0 && (
+                              <tr><td colSpan="5" className="text-center py-10 text-slate-300">
+                                <i className="fa-solid fa-users text-4xl mb-2 block"></i>ยังไม่มีผู้ใช้งาน
+                              </td></tr>
+                            )}
                           </tbody>
                         </table>
                       </div>
