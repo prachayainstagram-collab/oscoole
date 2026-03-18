@@ -258,6 +258,250 @@
     }
 
     // ==========================================
+    // 📝 Activity Edit Modal
+    // ==========================================
+    function EditActivityModal({ act, onSave, onClose }) {
+      const [form, setForm] = React.useState({ ...act });
+      if (!act) return null;
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-fadeInUp overflow-hidden" onClick={e=>e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-5 text-white flex justify-between items-center">
+              <div>
+                <h3 className="font-bold">แก้ไขกิจกรรม</h3>
+                <p className="text-white/70 text-xs mt-0.5 font-mono">{act.id}</p>
+              </div>
+              <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center">
+                <i className="fa-solid fa-xmark text-xs"></i>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">ชื่อกิจกรรม</label>
+                <input type="text" value={form.name} onChange={e=>setForm({...form,name:e.target.value})}
+                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10 transition" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">งบประมาณ (บาท)</label>
+                  <input type="number" value={form.budget} onChange={e=>setForm({...form,budget:e.target.value})}
+                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10 transition" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">สถานะ</label>
+                  <select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}
+                    className="w-full border-2 border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-400 transition appearance-none">
+                    {['รออนุมัติ QA','รออนุมัติ ผอ.','กำลังดำเนินการ','เสร็จสิ้น','ตีกลับ'].map(s=><option key={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">รายละเอียด</label>
+                <textarea rows={2} value={form.description||''} onChange={e=>setForm({...form,description:e.target.value})}
+                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-400/10 transition resize-none" />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-sm transition">ยกเลิก</button>
+                <button onClick={()=>onSave(form)} className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition shadow-lg flex items-center gap-2">
+                  <i className="fa-solid fa-floppy-disk"></i> บันทึก
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 🔄 PDCA Update Modal
+    // ==========================================
+    function PdcaModal({ act, onSave, onClose }) {
+      const steps = [
+        { key:'Plan',  icon:'fa-lightbulb',    color:'bg-blue-500',   desc:'วางแผน กำหนดเป้าหมาย' },
+        { key:'Do',    icon:'fa-play',          color:'bg-emerald-500',desc:'ดำเนินการตามแผน' },
+        { key:'Check', icon:'fa-magnifying-glass',color:'bg-amber-500',desc:'ตรวจสอบผลการดำเนินงาน' },
+        { key:'Act',   icon:'fa-rotate',        color:'bg-purple-500', desc:'ปรับปรุงและพัฒนา' },
+      ];
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-fadeInUp overflow-hidden" onClick={e=>e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-brand-primary to-indigo-600 p-5 text-white">
+              <h3 className="font-bold">อัปเดต PDCA Cycle</h3>
+              <p className="text-indigo-200 text-xs mt-0.5 truncate">{act.name}</p>
+            </div>
+            <div className="p-5 grid grid-cols-2 gap-3">
+              {steps.map(s => (
+                <button key={s.key} onClick={()=>onSave(act.id, s.key)}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all hover:scale-105 ${act.pdca===s.key?'border-brand-primary bg-indigo-50':'border-slate-200 hover:border-brand-primary'}`}>
+                  <div className={`w-10 h-10 rounded-xl ${s.color} flex items-center justify-center shrink-0 shadow-md`}>
+                    <i className={`fa-solid ${s.icon} text-white text-sm`}></i>
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-slate-800 text-sm">{s.key}</p>
+                    <p className="text-xs text-slate-400 leading-tight">{s.desc}</p>
+                  </div>
+                  {act.pdca===s.key && <i className="fa-solid fa-circle-check text-brand-primary ml-auto text-sm"></i>}
+                </button>
+              ))}
+            </div>
+            <div className="px-5 pb-5">
+              <button onClick={onClose} className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition">ปิด</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 🏫 SA: School Menu Edit Modal
+    // ==========================================
+    function SchoolMenuModal({ school, schoolsDb, onToggle, onSave, onClose }) {
+      const MENU_ITEMS_DEF_LOCAL = [
+        { id:'dashboard',        icon:'fa-chart-pie',           label:'ภาพรวมระบบ' },
+        { id:'proposeActivity',  icon:'fa-circle-plus',         label:'เสนอจัดตั้งกิจกรรม' },
+        { id:'projectMgmt',      icon:'fa-folder-open',         label:'จัดการโครงการ' },
+        { id:'activityMgmt',     icon:'fa-clipboard-list',      label:'จัดการกิจกรรม' },
+        { id:'budgetRequest',    icon:'fa-wallet',              label:'ขอเบิกงบประมาณ' },
+        { id:'qaScreening',      icon:'fa-clipboard-check',     label:'การกลั่นกรอง (QA)' },
+        { id:'directorApproval', icon:'fa-file-signature',      label:'อนุมัติโครงการ' },
+        { id:'managerApproval',  icon:'fa-file-invoice-dollar', label:'อนุมัติงบประมาณ' },
+        { id:'users',            icon:'fa-users',               label:'จัดการผู้ใช้งาน' },
+        { id:'settings',         icon:'fa-gear',                label:'ตั้งค่าระบบ' },
+      ];
+      const currentSchool = schoolsDb[school.id] || school;
+      const activeMenus = currentSchool.activeMenus || [];
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 animate-fadeInUp overflow-hidden" onClick={e=>e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-brand-navy to-slate-700 p-5 text-white flex justify-between items-center">
+              <div>
+                <h3 className="font-bold">จัดการเมนู</h3>
+                <p className="text-slate-300 text-xs mt-0.5">{school.name}</p>
+              </div>
+              <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center">
+                <i className="fa-solid fa-xmark text-xs"></i>
+              </button>
+            </div>
+            <div className="p-5 grid grid-cols-2 gap-2 max-h-96 overflow-y-auto">
+              {MENU_ITEMS_DEF_LOCAL.map(menu => {
+                const isLocked = menu.id==='dashboard'||menu.id==='settings';
+                const isActive = activeMenus.includes(menu.id);
+                return (
+                  <label key={menu.id} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${isActive?'border-brand-primary bg-indigo-50/50':'border-slate-200'} ${isLocked?'pointer-events-none opacity-60':''}`}>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isActive?'bg-brand-primary text-white':'bg-slate-100 text-slate-400'}`}>
+                      <i className={`fa-solid ${menu.icon} text-xs`}></i>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-700 leading-tight truncate">{menu.label}</p>
+                    </div>
+                    <div className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${isActive?'bg-emerald-500':'bg-slate-300'}`}>
+                      <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 shadow transition-all`} style={{left:isActive?'calc(100% - 18px)':'2px'}}></div>
+                    </div>
+                    {!isLocked && <input type="checkbox" className="hidden" checked={isActive} onChange={()=>onToggle(school.id, menu.id)} />}
+                  </label>
+                );
+              })}
+            </div>
+            <div className="p-5 border-t border-slate-100 flex justify-end gap-3">
+              <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-sm transition">ยกเลิก</button>
+              <button onClick={()=>onSave(school.id)} className="px-6 py-2.5 rounded-xl bg-brand-primary hover:bg-indigo-700 text-white font-semibold text-sm transition shadow-lg flex items-center gap-2">
+                <i className="fa-solid fa-save"></i> บันทึก
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 🏗️ Add Project Modal
+    // ==========================================
+    function AddProjectModal({ form, setForm, onSubmit, onClose }) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-fadeInUp overflow-hidden" onClick={e=>e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-brand-primary to-indigo-600 p-5 text-white flex justify-between items-center">
+              <h3 className="font-bold">สร้างโครงการใหม่</h3>
+              <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center">
+                <i className="fa-solid fa-xmark text-xs"></i>
+              </button>
+            </div>
+            <form onSubmit={onSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">ชื่อโครงการ <span className="text-rose-500">*</span></label>
+                <input type="text" required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}
+                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition"
+                  placeholder="ชื่อโครงการ..." />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">งบประมาณ (บาท)</label>
+                  <input type="number" min="0" value={form.budget} onChange={e=>setForm({...form,budget:e.target.value})}
+                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition"
+                    placeholder="0" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">เป้าหมาย (%)</label>
+                  <input type="number" min="1" max="100" value={form.target} onChange={e=>setForm({...form,target:e.target.value})}
+                    className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-sm transition">ยกเลิก</button>
+                <button type="submit" className="px-6 py-2.5 rounded-xl bg-brand-primary hover:bg-indigo-700 text-white font-semibold text-sm transition shadow-lg flex items-center gap-2">
+                  <i className="fa-solid fa-folder-plus"></i> สร้างโครงการ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    // ==========================================
+    // 🔔 Notification Dropdown
+    // ==========================================
+    function NotifDropdown({ qaPending, directorPending, managerPending, onNavigate, onClose }) {
+      const items = [
+        ...qaPending.map(a=>({ id:a.id, text:`"${a.name}" รอ QA กลั่นกรอง`, icon:'fa-clipboard-check', color:'text-amber-500', menu:'qaScreening' })),
+        ...directorPending.map(a=>({ id:a.id, text:`"${a.name}" รอผู้อำนวยการอนุมัติ`, icon:'fa-file-signature', color:'text-purple-500', menu:'directorApproval' })),
+        ...managerPending.map(r=>({ id:r.id, text:`คำขอเบิก "${r.activity}" รอ Manager`, icon:'fa-wallet', color:'text-orange-500', menu:'managerApproval' })),
+      ];
+      return (
+        <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-fadeInUp" onClick={e=>e.stopPropagation()}>
+          <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+            <h4 className="font-bold text-slate-800 text-sm">การแจ้งเตือน</h4>
+            <span className="bg-rose-100 text-rose-600 text-xs font-bold px-2 py-0.5 rounded-full">{items.length} รายการ</span>
+          </div>
+          <div className="max-h-72 overflow-y-auto">
+            {items.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-sm">
+                <i className="fa-regular fa-bell-slash text-2xl mb-2 block"></i>ไม่มีการแจ้งเตือน
+              </div>
+            ) : items.map(item => (
+              <button key={item.id} onClick={()=>{ onNavigate(item.menu); onClose(); }}
+                className="w-full flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition text-left border-b border-slate-50 last:border-0">
+                <div className={`w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 mt-0.5 ${item.color}`}>
+                  <i className={`fa-solid ${item.icon} text-xs`}></i>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-700 font-medium leading-snug line-clamp-2">{item.text}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">คลิกเพื่อดำเนินการ</p>
+                </div>
+                <i className="fa-solid fa-chevron-right text-slate-300 text-xs mt-1 shrink-0"></i>
+              </button>
+            ))}
+          </div>
+          {items.length > 0 && (
+            <div className="p-3 border-t border-slate-100 text-center">
+              <button onClick={onClose} className="text-xs text-brand-primary font-semibold hover:underline">ปิด</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ==========================================
     // 🎯 MAIN APP
     // ==========================================
     function App() {
@@ -299,6 +543,26 @@
       const [editingUser, setEditingUser] = useState(null); // username ที่กำลังแก้ไข
       const [showPassword, setShowPassword] = useState(false);  // toggle แสดง/ซ่อน password ในฟอร์ม
       const [showPwMap, setShowPwMap] = useState({});           // toggle แสดงรหัสในตาราง { username: bool }
+
+      // ── Notification ─────────────────────────────────────
+      const [showNotif, setShowNotif] = useState(false);
+
+      // ── Sidebar mobile ───────────────────────────────────
+      const [sidebarOpen, setSidebarOpen] = useState(false);
+
+      // ── Activity Edit Modal ───────────────────────────────
+      const [editActModal, setEditActModal] = useState(null);   // activity object กำลังแก้ไข
+
+      // ── Project Modal ─────────────────────────────────────
+      const [showProjectModal, setShowProjectModal] = useState(false);
+      const [projectForm, setProjectForm] = useState({ name:'', budget:'', target:80 });
+      const [projects, setProjects] = useState(projectsData);
+
+      // ── PDCA modal ────────────────────────────────────────
+      const [pdcaModal, setPdcaModal] = useState(null);         // activity object
+
+      // ── SA School edit ────────────────────────────────────
+      const [saEditSchool, setSaEditSchool] = useState(null);   // school object กำลังแก้ไข menus
 
       // Activity Form
       const [activityForm, setActivityForm] = useState({ project:'', name:'', budget:'', description:'' });
@@ -595,6 +859,58 @@
       };
 
       // ----------------------------------------
+      // ── Activity Edit ──────────────────────────────────────
+      const handleSaveEditActivity = async (updated) => {
+        setActivities(prev => prev.map(a => a.id === updated.id ? {...a, ...updated} : a));
+        setEditActModal(null);
+        const result = await postToSheets({ action:'updateStatus', id: updated.id, status: updated.status, updatedBy: role });
+        if (result.ok) showToast('อัปเดตกิจกรรมแล้ว ✅');
+        else showToast('บันทึกไม่สำเร็จ', 'error');
+      };
+
+      // ── PDCA Update ────────────────────────────────────────
+      const handleSavePdca = async (id, pdca) => {
+        setActivities(prev => prev.map(a => a.id === id ? {...a, pdca} : a));
+        setPdcaModal(null);
+        await postToSheets({ action:'updatePdca', id, pdca });
+        showToast(`อัปเดต PDCA เป็น "${pdca}" แล้ว ✅`);
+      };
+
+      // ── Project CRUD ────────────────────────────────────────
+      const handleAddProject = (e) => {
+        e.preventDefault();
+        if (!projectForm.name) { showToast('กรุณาระบุชื่อโครงการ','error'); return; }
+        const newProj = {
+          id: projects.length + 1,
+          code: `PRJ-67-${String(projects.length+1).padStart(3,'0')}`,
+          name: projectForm.name,
+          budget: parseFloat(projectForm.budget)||0,
+          progress: 0,
+          target: parseInt(projectForm.target)||80,
+        };
+        setProjects(prev => [...prev, newProj]);
+        setShowProjectModal(false);
+        setProjectForm({ name:'', budget:'', target:80 });
+        showToast('สร้างโครงการใหม่แล้ว ✅');
+      };
+
+      // ── SA: Toggle menu for school ─────────────────────────
+      const handleSaToggleMenu = (schoolId, menuId) => {
+        setSchoolsDb(prev => {
+          const school = prev[schoolId];
+          const isActive = (school.activeMenus||[]).includes(menuId);
+          const activeMenus = isActive
+            ? school.activeMenus.filter(m => m !== menuId)
+            : [...(school.activeMenus||[]), menuId];
+          return { ...prev, [schoolId]: { ...school, activeMenus } };
+        });
+      };
+
+      const handleSaSaveSchoolMenus = (schoolId) => {
+        setSaEditSchool(null);
+        showToast('บันทึกเมนูสถานศึกษาแล้ว ✅');
+      };
+
       // ── User Management (ภายในโรงเรียน) ─────────────────────
       const schoolUsers = schoolInfo ? (schoolsDb[schoolInfo.id]?.users || []) : [];
 
@@ -973,6 +1289,14 @@
                               </td>
                               <td className="px-6 py-4 text-center">
                                 <div className="flex items-center justify-center gap-1.5">
+                                  <button onClick={()=>setSaEditSchool(school)}
+                                    className="bg-slate-50 text-slate-600 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1" title="จัดการเมนู">
+                                    <i className="fa-solid fa-layer-group"></i> เมนู
+                                  </button>
+                                  <button onClick={()=>setSaEditSchool(school)}
+                                    className="bg-slate-50 text-slate-600 hover:bg-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1" title="จัดการเมนู">
+                                    <i className="fa-solid fa-layer-group"></i> เมนู
+                                  </button>
                                   <button onClick={()=>handleEnterAsAdmin(school)}
                                     className="bg-indigo-50 text-brand-primary hover:bg-brand-primary hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1" title="เข้าระบบในฐานะ Admin">
                                     <i className="fa-solid fa-arrow-right-to-bracket"></i> เข้าระบบ
@@ -1066,9 +1390,48 @@
               onCancel={() => setConfirmModal(null)}
             />
           )}
+          {editActModal && (
+            <EditActivityModal
+              act={editActModal}
+              onSave={handleSaveEditActivity}
+              onClose={() => setEditActModal(null)}
+            />
+          )}
+          {pdcaModal && (
+            <PdcaModal
+              act={pdcaModal}
+              onSave={handleSavePdca}
+              onClose={() => setPdcaModal(null)}
+            />
+          )}
+          {showProjectModal && (
+            <AddProjectModal
+              form={projectForm}
+              setForm={setProjectForm}
+              onSubmit={handleAddProject}
+              onClose={() => setShowProjectModal(false)}
+            />
+          )}
+          {saEditSchool && (
+            <SchoolMenuModal
+              school={saEditSchool}
+              schoolsDb={schoolsDb}
+              onToggle={handleSaToggleMenu}
+              onSave={handleSaSaveSchoolMenus}
+              onClose={() => setSaEditSchool(null)}
+            />
+          )}
+          {showNotif && (
+            <div className="fixed inset-0 z-40" onClick={()=>setShowNotif(false)}></div>
+          )}
+
+          {/* ─── MOBILE SIDEBAR OVERLAY ─── */}
+          {sidebarOpen && (
+            <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={()=>setSidebarOpen(false)}></div>
+          )}
 
           {/* ─── SIDEBAR ─── */}
-          <aside className="w-72 bg-brand-navy text-slate-300 flex flex-col shadow-2xl relative z-20 shrink-0">
+          <aside className={`fixed lg:relative inset-y-0 left-0 z-40 w-72 bg-brand-navy text-slate-300 flex flex-col shadow-2xl shrink-0 transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
             <div className="p-6 flex items-center gap-4 border-b border-slate-800">
               {schoolInfo?.logo
                 ? <img src={schoolInfo.logo} alt="Logo" className="w-10 h-10 rounded-xl object-cover bg-white p-0.5 shadow-glow shrink-0" onError={e=>{e.target.style.display='none';}} />
@@ -1085,7 +1448,7 @@
                 const badges = { qaScreening: qaPending.length, directorApproval: directorPending.length, managerApproval: managerPending.length };
                 const badge = badges[menu.id];
                 return (
-                  <button key={menu.id} onClick={() => setActiveMenu(menu.id)}
+                  <button key={menu.id} onClick={() => { setActiveMenu(menu.id); setSidebarOpen(false); }}
                     className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
                       activeMenu === menu.id ? 'bg-brand-primary text-white shadow-glow font-medium' : 'hover:bg-slate-800 hover:text-white'
                     }`}>
@@ -1126,11 +1489,14 @@
           </aside>
 
           {/* ─── MAIN ─── */}
-          <main className="flex-1 flex flex-col min-w-0">
+          <main className="flex-1 flex flex-col min-w-0 lg:ml-0">
             {/* HEADER */}
             <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10 shrink-0">
               <div className="flex items-center gap-3">
-                <i className={`${MENU_ITEMS_DEF.find(m=>m.id===activeMenu)?.icon} text-brand-primary`}></i>
+                <button onClick={()=>setSidebarOpen(v=>!v)} className="lg:hidden w-9 h-9 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-600 transition">
+                  <i className="fa-solid fa-bars text-sm"></i>
+                </button>
+                <i className={`${MENU_ITEMS_DEF.find(m=>m.id===activeMenu)?.icon} text-brand-primary hidden sm:block`}></i>
                 <h2 className="text-base font-bold text-slate-800">{MENU_ITEMS_DEF.find(m=>m.id===activeMenu)?.label}</h2>
               </div>
               <div className="flex items-center gap-3">
@@ -1143,13 +1509,22 @@
                   {lang==='th'?'EN':'TH'}
                 </button>
                 <div className="relative">
-                  <button className="w-9 h-9 rounded-full bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-500 transition flex items-center justify-center">
+                  <button onClick={()=>setShowNotif(v=>!v)} className="w-9 h-9 rounded-full bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-500 transition flex items-center justify-center relative">
                     <i className="fa-regular fa-bell text-sm"></i>
+                    {(qaPending.length + directorPending.length + managerPending.length) > 0 && (
+                      <span className="absolute top-0 right-0 w-4 h-4 bg-rose-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center">
+                        {qaPending.length + directorPending.length + managerPending.length}
+                      </span>
+                    )}
                   </button>
-                  {(qaPending.length + directorPending.length + managerPending.length) > 0 && (
-                    <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-rose-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center">
-                      {qaPending.length + directorPending.length + managerPending.length}
-                    </span>
+                  {showNotif && (
+                    <NotifDropdown
+                      qaPending={qaPending}
+                      directorPending={directorPending}
+                      managerPending={managerPending}
+                      onNavigate={(menu)=>{ setActiveMenu(menu); setSidebarOpen(false); }}
+                      onClose={()=>setShowNotif(false)}
+                    />
                   )}
                 </div>
                 <div className="hidden md:flex items-center gap-2">
@@ -1193,7 +1568,7 @@
                       <StatCard title="งบประมาณรวม (กิจกรรม)" value={fmtCurrency(totalBudgetAllocated)} colorClass="bg-blue-50 text-brand-primary" icon="fa-solid fa-sack-dollar" sub={`${activities.length} กิจกรรม`} />
                       <StatCard title="เบิกจ่ายแล้ว" value={fmtCurrency(usedBudget)} colorClass="bg-emerald-50 text-emerald-600" icon="fa-solid fa-money-bill-trend-up" sub={`${budgetRequests.filter(r=>r.status==='อนุมัติแล้ว').length} รายการ`} />
                       <StatCard title="รอ QA กลั่นกรอง" value={qaPending.length + ' รายการ'} colorClass="bg-amber-50 text-amber-600" icon="fa-solid fa-clipboard-check" sub="คลิกเพื่อดู" />
-                      <StatCard title="โครงการทั้งหมด" value={projectsData.length} colorClass="bg-purple-50 text-purple-600" icon="fa-solid fa-layer-group" sub="ปีการศึกษา 2567" />
+                      <StatCard title="โครงการทั้งหมด" value={projects.length} colorClass="bg-purple-50 text-purple-600" icon="fa-solid fa-layer-group" sub="ปีการศึกษา 2567" />
                     </div>
 
                     {sheetsError && (
@@ -1267,7 +1642,7 @@
                     <div className="bg-white p-6 rounded-2xl shadow-soft border border-slate-100">
                       <h3 className="text-base font-bold text-slate-800 mb-4">ความก้าวหน้าโครงการหลัก</h3>
                       <div className="space-y-4">
-                        {projectsData.map(proj => (
+                        {projects.map(proj => (
                           <div key={proj.id} className="group">
                             <div className="flex justify-between items-end mb-1.5">
                               <span className="font-medium text-slate-700 text-sm truncate pr-4">{proj.name}</span>
@@ -1291,7 +1666,7 @@
                         <h3 className="text-xl font-bold text-slate-800">จัดการโครงการ</h3>
                         <p className="text-slate-400 text-sm mt-0.5">บริหารโครงการหลัก ตั้งค่าเป้าหมาย และจัดสรรงบประมาณ</p>
                       </div>
-                      <button className="bg-brand-primary text-white px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-indigo-700 transition shadow-lg shadow-brand-primary/20">
+                      <button onClick={()=>setShowProjectModal(true)} className="bg-brand-primary text-white px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-indigo-700 transition shadow-lg shadow-brand-primary/20">
                         <i className="fa-solid fa-folder-plus"></i> สร้างโครงการใหม่
                       </button>
                     </div>
@@ -1309,7 +1684,7 @@
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 text-sm">
-                            {projectsData.map(proj => (
+                            {projects.map(proj => (
                               <tr key={proj.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="px-6 py-4 text-slate-400 font-mono text-xs">{proj.code}</td>
                                 <td className="px-6 py-4 font-semibold text-slate-800">{proj.name}</td>
@@ -1355,7 +1730,7 @@
                           <select required value={activityForm.project} onChange={e=>setActivityForm({...activityForm,project:e.target.value})}
                             className={`w-full border-2 rounded-xl p-3 text-sm outline-none focus:ring-4 focus:ring-brand-primary/10 transition-all ${formErrors.project?'border-rose-400 bg-rose-50':'border-slate-200 focus:border-brand-primary'}`}>
                             <option value="">-- กรุณาเลือกโครงการหลัก --</option>
-                            {projectsData.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
+                            {projects.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
                           </select>
                           {formErrors.project && <p className="text-rose-500 text-xs mt-1"><i className="fa-solid fa-circle-exclamation mr-1"></i>{formErrors.project}</p>}
                         </div>
@@ -1478,8 +1853,11 @@
                                     <button onClick={()=>setSelectedAct(act)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 inline-flex items-center justify-center transition" title="ดูรายละเอียด">
                                       <i className="fa-solid fa-eye text-sm"></i>
                                     </button>
-                                    <button className="w-8 h-8 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 inline-flex items-center justify-center transition" title="แก้ไข">
+                                    <button onClick={()=>setEditActModal(act)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50 inline-flex items-center justify-center transition" title="แก้ไข">
                                       <i className="fa-solid fa-pen-to-square text-sm"></i>
+                                    </button>
+                                    <button onClick={()=>setPdcaModal(act)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-purple-500 hover:bg-purple-50 inline-flex items-center justify-center transition" title="อัปเดต PDCA">
+                                      <i className="fa-solid fa-rotate text-sm"></i>
                                     </button>
                                   </div>
                                 </td>
