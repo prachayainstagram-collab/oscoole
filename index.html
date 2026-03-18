@@ -66,8 +66,9 @@
 
     // ==========================================
     // ⚙️ นำ URL ของ Google Apps Script มาวางที่นี่
+    // ⚠️ คำเตือน: ต้องเป็นลิงก์ "Web App" ที่ลงท้ายด้วย /exec เท่านั้น ไม่ใช่ลิงก์ /edit
     // ==========================================
-    const GOOGLE_WEB_APP_URL = 'ใส่_URL_ของ_APPS_SCRIPT_ตรงนี้';
+    const GOOGLE_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyrKMDu9a2pD1MHyRlczlAbZSIINRmeCJCmkBEXQga-w8ukdmTDx6tTHa6T_bPgETU/exec';
 
     // --- Mock Data ---
     const chartData = [
@@ -335,8 +336,8 @@
           return;
         }
 
-        if (GOOGLE_WEB_APP_URL === 'ใส่_URL_ของ_APPS_SCRIPT_ตรงนี้') {
-          alert('⚠️ คุณยังไม่ได้ใส่ URL ของ Google Apps Script โค้ดจะจำลองการทำงานเฉยๆ นะครับ');
+        if (GOOGLE_WEB_APP_URL === 'นำลิงก์_Web_App_ที่ลงท้ายด้วย_exec_มาวางตรงนี้') {
+          alert('⚠️ คุณยังไม่ได้ใส่ URL ของ Google Apps Script ที่ลงท้ายด้วย /exec โค้ดจะจำลองการทำงานเฉยๆ นะครับ');
           setActivityForm({ project: '', name: '', budget: '' }); 
           setActiveMenu('activityMgmt');
           return;
