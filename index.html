@@ -106,8 +106,8 @@
     };
 
     const initialSchoolsData = {
-      '1001': { id: '1001', name: 'โรงเรียนมัธยมตัวอย่างที่ 1 (Local)', logo: '', activeMenus: ['dashboard', 'proposeActivity', 'projectMgmt', 'activityMgmt', 'budgetRequest', 'qaScreening', 'directorApproval', 'managerApproval', 'users', 'settings'] },
-      '1002': { id: '1002', name: 'โรงเรียนมัธยมตัวอย่างที่ 2 (Local)', logo: '', activeMenus: ['dashboard', 'proposeActivity', 'activityMgmt', 'settings'] }
+      '1001': { id: '1001', name: 'โรงเรียนมัธยมตัวอย่างที่ 1', logo: '', activeMenus: ['dashboard', 'proposeActivity', 'projectMgmt', 'activityMgmt', 'budgetRequest', 'qaScreening', 'directorApproval', 'managerApproval', 'users', 'settings'] },
+      '1002': { id: '1002', name: 'โรงเรียนมัธยมตัวอย่างที่ 2', logo: '', activeMenus: ['dashboard', 'proposeActivity', 'activityMgmt', 'settings'] }
     };
 
     const translations = {
@@ -269,16 +269,10 @@
       const [settingsSuccess, setSettingsSuccess] = useState(false);
 
       // ==========================================
-      // 🟢 INTERACTIVE STATE: จัดการข้อมูลแบบโต้ตอบได้จริง
+      // 🟢 GOOGLE SHEETS STATE (ดึงข้อมูลจริง)
       // ==========================================
-      const [activities, setActivities] = useState([
-        { id: 'ACT-67-001', name: 'ค่ายวิชาการคณิตศาสตร์', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 15000, status: 'รออนุมัติ QA', pdca: 'Plan' },
-        { id: 'ACT-67-002', name: 'อบรมมารยาทไทย', project: 'โครงการส่งเสริมคุณธรรมจริยธรรม', budget: 5000, status: 'กำลังดำเนินการ', pdca: 'Do' },
-        { id: 'ACT-67-003', name: 'ปรับปรุงสวนหย่อมหน้าอาคาร', project: 'โครงการปรับปรุงภูมิทัศน์โรงเรียน', budget: 50000, status: 'เสร็จสิ้น', pdca: 'Act' },
-        { id: 'ACT-67-004', name: 'ทัศนศึกษา ม.3', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 120000, status: 'ร่าง', pdca: '-' },
-        { id: 'ACT-67-005', name: 'จัดซื้ออุปกรณ์วิทยาศาสตร์', project: 'โครงการพัฒนาศักยภาพผู้เรียน', budget: 45000, status: 'รออนุมัติ ผอ.', pdca: 'Plan' },
-        { id: 'ACT-67-006', name: 'อบรมครูแกนนำ', project: 'โครงการส่งเสริมคุณธรรมจริยธรรม', budget: 20000, status: 'รออนุมัติ ผอ.', pdca: 'Plan' },
-      ]);
+      const [activities, setActivities] = useState([]);
+      const [isLoadingActivities, setIsLoadingActivities] = useState(false);
 
       const [budgetRequests, setBudgetRequests] = useState([
         { id: 'REQ-67-001', activity: 'อบรมมารยาทไทย', amount: 5000, date: '10/10/2024', status: 'รออนุมัติ (Manager)' },
@@ -289,6 +283,33 @@
       const [isSubmittingActivity, setIsSubmittingActivity] = useState(false);
 
       const t = translations[lang];
+
+      // ดึงข้อมูลเมื่อ Login สำเร็จ
+      useEffect(() => {
+        if (isLoggedIn && schoolInfo) {
+          loadActivitiesFromSheets();
+        }
+      }, [isLoggedIn, schoolInfo]);
+
+      const loadActivitiesFromSheets = async () => {
+        if (!GOOGLE_WEB_APP_URL || GOOGLE_WEB_APP_URL === 'นำลิงก์_Web_App_ที่ลงท้ายด้วย_exec_มาวางตรงนี้') return;
+        
+        setIsLoadingActivities(true);
+        try {
+          const response = await fetch(GOOGLE_WEB_APP_URL);
+          const result = await response.json();
+          
+          if (result && result.activities) {
+            // กรองเอาเฉพาะข้อมูลของโรงเรียนตัวเอง
+            const myActivities = result.activities.filter(act => act.schoolCode === schoolInfo.id);
+            // เรียงข้อมูลจากใหม่ไปเก่า (ล่าสุดอยู่บนสุด)
+            setActivities(myActivities.reverse());
+          }
+        } catch (error) {
+          console.error("Error loading activities:", error);
+        }
+        setIsLoadingActivities(false);
+      };
 
       useEffect(() => {
         if (schoolInfo) {
@@ -327,7 +348,7 @@
         setActiveMenu('dashboard');
       };
 
-      // 🟢 ฟังก์ชันบันทึกกิจกรรมย่อยใหม่
+      // 🟢 ฟังก์ชันบันทึกกิจกรรมย่อยใหม่ ลง Google Sheets
       const handleProposeActivity = async (e) => {
         e.preventDefault();
         
@@ -338,26 +359,23 @@
 
         setIsSubmittingActivity(true);
 
-        // 1. เพิ่มกิจกรรมใหม่ลงในตารางของเว็บทันที (เพื่อให้ใช้งานได้จริง)
-        const newActivity = {
-          id: `ACT-67-${String(activities.length + 1).padStart(3, '0')}`,
+        // แสดงผลลัพธ์ในตารางชั่วคราวให้ผู้ใช้เห็นว่าสำเร็จทันที
+        const tempActivity = {
+          id: `ACT-NEW`,
           name: activityForm.name,
           project: activityForm.project,
           budget: parseFloat(activityForm.budget) || 0,
           status: 'รออนุมัติ QA',
           pdca: 'Plan'
         };
-        
-        setActivities([newActivity, ...activities]);
+        setActivities([tempActivity, ...activities]);
 
-        // 2. ส่งข้อมูลบันทึกซ่อนไว้ที่ Google Sheets
         try {
+          // ส่งข้อมูลเข้า Google Sheets
           await fetch(GOOGLE_WEB_APP_URL, {
             method: 'POST',
             mode: 'no-cors',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               schoolCode: schoolInfo.id,
               project: activityForm.project,
@@ -368,32 +386,37 @@
             })
           });
           
-          alert('บันทึกข้อมูลกิจกรรมลงระบบ และ Google Sheets เรียบร้อยแล้ว! 🎉');
+          alert('บันทึกข้อมูลลง Google Sheets เรียบร้อยแล้ว! 🎉');
           setActivityForm({ project: '', name: '', budget: '' }); 
-          setActiveMenu('activityMgmt'); // ย้ายไปหน้าจัดการกิจกรรมเพื่อดูผลลัพธ์ทันที
+          setActiveMenu('activityMgmt');
+          
+          // โหลดข้อมูลล่าสุดจาก Google Sheets มาอัปเดตตารางอีกครั้ง
+          setTimeout(() => {
+            loadActivitiesFromSheets();
+          }, 1500);
 
         } catch (error) {
           console.error('Error saving:', error);
-          alert('เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheets แต่ข้อมูลถูกเพิ่มในหน้าเว็บแล้วชั่วคราว');
+          alert('เกิดข้อผิดพลาดในการเชื่อมต่อ แต่ข้อมูลถูกเพิ่มในหน้าเว็บชั่วคราวแล้ว');
           setActiveMenu('activityMgmt');
         }
         
         setIsSubmittingActivity(false);
       };
 
-      // 🟢 ฟังก์ชันสำหรับหน้า QA การกลั่นกรอง
+      // ฟังก์ชันสำหรับหน้า QA การกลั่นกรอง (ยังไม่ได้ทำเชื่อม Sheets ไว้โชว์ UI เฉยๆ)
       const handleQAStatusUpdate = (id, newStatus) => {
         setActivities(activities.map(act => 
           act.id === id ? { ...act, status: newStatus } : act
         ));
         if (newStatus === 'รออนุมัติ ผอ.') {
-          alert('อนุมัติผ่าน QA เรียบร้อยแล้ว! ข้อมูลถูกส่งต่อไปยัง ผู้อำนวยการ');
+          alert('อนุมัติผ่าน QA เรียบร้อยแล้ว!');
         } else {
           alert('ทำรายการตีกลับเรียบร้อยแล้ว');
         }
       };
 
-      // 🟢 ฟังก์ชันสำหรับหน้า ผอ. อนุมัติ
+      // ฟังก์ชันสำหรับหน้า ผอ. อนุมัติ
       const handleDirectorStatusUpdate = (id, newStatus) => {
         setActivities(activities.map(act => 
           act.id === id ? { ...act, status: newStatus } : act
@@ -466,7 +489,7 @@
                   
                   <div className={`mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border border-emerald-500/30 text-emerald-400 bg-emerald-500/10`}>
                     <span className={`w-2 h-2 rounded-full bg-emerald-500`}></span>
-                    พร้อมใช้งาน (Interactive Mode)
+                    เชื่อมต่อฐานข้อมูล Google Sheets
                   </div>
                 </div>
                 <div className="relative z-10 mt-12 md:mt-0">
@@ -834,13 +857,12 @@
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-soft border border-slate-100">
                       <div>
                         <h3 className="text-xl font-bold text-slate-800">{t.activityList}</h3>
-                        <p className="text-sm text-slate-500 mt-1">ติดตามสถานะและอัปเดตกระบวนการ PDCA ของกิจกรรมย่อยแบบเรียลไทม์</p>
+                        <p className="text-sm text-slate-500 mt-1">ติดตามสถานะและอัปเดตกระบวนการ PDCA ดึงข้อมูลตรงจาก Google Sheets</p>
                       </div>
                       <div className="flex gap-3 w-full sm:w-auto">
-                        <div className="relative flex-1 sm:w-72">
-                          <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                          <input type="text" placeholder={t.searchActivity} className="w-full border-2 border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" />
-                        </div>
+                        <button onClick={loadActivitiesFromSheets} className="bg-slate-100 text-slate-600 px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-slate-200 transition-all">
+                          <i className={`fa-solid fa-rotate-right ${isLoadingActivities ? 'fa-spin' : ''}`}></i> รีเฟรชข้อมูล
+                        </button>
                         <button onClick={() => setActiveMenu('proposeActivity')} className="bg-brand-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-brand-primary/20 whitespace-nowrap">
                           <i className="fa-solid fa-plus"></i> สร้างกิจกรรม
                         </button>
@@ -862,17 +884,31 @@
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 text-sm">
-                            {activities.map(act => (
+                            {isLoadingActivities ? (
+                              <tr>
+                                <td colSpan="7" className="px-6 py-8 text-center text-slate-500">
+                                  <i className="fa-solid fa-circle-notch fa-spin text-brand-primary text-2xl mb-2 block"></i>
+                                  กำลังดึงข้อมูลจาก Google Sheets...
+                                </td>
+                              </tr>
+                            ) : activities.length === 0 ? (
+                              <tr>
+                                <td colSpan="7" className="px-6 py-8 text-center text-slate-400">
+                                  <i className="fa-regular fa-folder-open text-4xl mb-2 block opacity-50"></i>
+                                  ยังไม่มีข้อมูลกิจกรรม หรือกำลังเชื่อมต่อข้อมูล
+                                </td>
+                              </tr>
+                            ) : activities.map(act => (
                               <tr key={act.id} className="hover:bg-slate-50/80 transition-colors group">
                                 <td className="px-6 py-4 text-slate-400 font-mono text-xs">{act.id}</td>
                                 <td className="px-6 py-4 font-bold text-slate-800">{act.name}</td>
                                 <td className="px-6 py-4 text-slate-600">{act.project}</td>
-                                <td className="px-6 py-4 text-slate-700 font-medium text-right">฿{act.budget.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-slate-700 font-medium text-right">฿{Number(act.budget || 0).toLocaleString()}</td>
                                 <td className="px-6 py-4 text-center">
                                   <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold border ${getStatusStyle(act.status)}`}>{act.status}</span>
                                 </td>
                                 <td className="px-6 py-4 text-center">
-                                  <span className="bg-slate-800 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm">{act.pdca}</span>
+                                  <span className="bg-slate-800 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm">{act.pdca || '-'}</span>
                                 </td>
                                 <td className="px-6 py-4 text-center">
                                   <div className="flex items-center justify-center gap-2">
@@ -971,7 +1007,7 @@
                               <tr key={act.id} className="hover:bg-slate-50/80 transition-colors">
                                 <td className="px-6 py-4 text-slate-400 font-mono text-xs">{act.id}</td>
                                 <td className="px-6 py-4 font-bold text-slate-800">{act.name}</td>
-                                <td className="px-6 py-4 text-slate-700 font-medium text-right">฿{act.budget.toLocaleString()}</td>
+                                <td className="px-6 py-4 text-slate-700 font-medium text-right">฿{Number(act.budget || 0).toLocaleString()}</td>
                                 <td className="px-6 py-4 text-center">
                                   <div className="flex items-center justify-center gap-2">
                                     <button onClick={() => handleDirectorStatusUpdate(act.id, 'กำลังดำเนินการ')} className="bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-emerald-500/30 flex items-center gap-2">
