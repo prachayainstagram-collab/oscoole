@@ -100,9 +100,29 @@
       { id:4, name:'วิชัย คุมเงิน', username:'wichai.k', role:'Manager', status:'Inactive', lastLogin:'3 วันที่แล้ว' },
     ];
 
+    // ─── Super Admin ส่วนกลาง ───────────────────────────
+    const SUPER_ADMIN = { username:'superadmin', password:'admin1234', name:'ผู้ดูแลระบบส่วนกลาง' };
+
+    // ─── ฐานข้อมูลโรงเรียน ───────────────────────────────
     const initialSchoolsData = {
-      '1001': { id:'1001', name:'โรงเรียนมัธยมตัวอย่างที่ 1', logo:'', activeMenus:['dashboard','proposeActivity','projectMgmt','activityMgmt','budgetRequest','qaScreening','directorApproval','managerApproval','users','settings'] },
-      '1002': { id:'1002', name:'โรงเรียนมัธยมตัวอย่างที่ 2', logo:'', activeMenus:['dashboard','proposeActivity','activityMgmt','settings'] }
+      '1001': {
+        id:'1001', name:'โรงเรียนมัธยมตัวอย่างที่ 1', logo:'', province:'กรุงเทพมหานคร', status:'active',
+        users:[
+          { username:'director01', password:'1234', name:'อำนวย สั่งการ',   role:'Director'   },
+          { username:'qa01',       password:'1234', name:'สมศรี มีความรู้', role:'QA Admin'   },
+          { username:'teacher01',  password:'1234', name:'สมชาย รักเรียน', role:'Teacher'    },
+          { username:'manager01',  password:'1234', name:'วิชัย คุมเงิน',  role:'Manager'    },
+        ],
+        activeMenus:['dashboard','proposeActivity','projectMgmt','activityMgmt','budgetRequest','qaScreening','directorApproval','managerApproval','users','settings'],
+      },
+      '1002': {
+        id:'1002', name:'โรงเรียนมัธยมตัวอย่างที่ 2', logo:'', province:'เชียงใหม่', status:'active',
+        users:[
+          { username:'admin',    password:'1234', name:'ผู้ดูแลโรงเรียน 2', role:'Super Admin' },
+          { username:'teacher1', password:'1234', name:'ครูโรงเรียน 2',     role:'Teacher'    },
+        ],
+        activeMenus:['dashboard','proposeActivity','activityMgmt','settings'],
+      },
     };
 
     const MENU_ITEMS_DEF = [
@@ -246,12 +266,21 @@
       const [activeMenu, setActiveMenu] = useState('dashboard');
       const [schoolsDb, setSchoolsDb] = useState(initialSchoolsData);
 
-      // Auth
+      // ── Auth State ──────────────────────────────────────
+      // loginMode: 'select' | 'superadmin' | 'school'
+      const [loginMode, setLoginMode] = useState('select');
       const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [isSuperAdmin, setIsSuperAdmin] = useState(false);   // ส่วนกลาง
       const [schoolInfo, setSchoolInfo] = useState(null);
-      const [loginForm, setLoginForm] = useState({ schoolCode:'', username:'', password:'' });
+      const [currentUser, setCurrentUser] = useState(null);      // { name, role, username }
+      const [loginForm, setLoginForm] = useState({ username:'', password:'' });
+      const [schoolLoginForm, setSchoolLoginForm] = useState({ schoolCode:'', username:'', password:'' });
       const [loginError, setLoginError] = useState('');
       const [isLoading, setIsLoading] = useState(false);
+      // Super Admin: จัดการโรงเรียน
+      const [saTab, setSaTab] = useState('schools');              // 'schools' | 'addSchool'
+      const [newSchoolForm, setNewSchoolForm] = useState({ id:'', name:'', province:'' });
+      const [saSelectedSchool, setSaSelectedSchool] = useState(null); // โรงเรียนที่กำลังแก้ไข
 
       // Toast
       const [toast, setToast] = useState(null);
@@ -377,25 +406,81 @@
         }
       }, [schoolInfo]);
 
-      const handleLogin = (e) => {
+      // Super Admin login
+      const handleSuperAdminLogin = (e) => {
         e.preventDefault();
-        setIsLoading(true);
-        setLoginError('');
+        setIsLoading(true); setLoginError('');
         setTimeout(() => {
-          if (schoolsDb[loginForm.schoolCode]) {
-            setSchoolInfo(schoolsDb[loginForm.schoolCode]);
+          if (loginForm.username === SUPER_ADMIN.username && loginForm.password === SUPER_ADMIN.password) {
+            setIsSuperAdmin(true);
+            setCurrentUser({ name: SUPER_ADMIN.name, role:'Super Admin', username: SUPER_ADMIN.username });
             setIsLoggedIn(true);
           } else {
-            setLoginError('รหัสสถานศึกษาไม่ถูกต้อง (กรุณาลอง 1001 หรือ 1002)');
+            setLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
           }
           setIsLoading(false);
-        }, 800);
+        }, 700);
+      };
+
+      // โรงเรียน login
+      const handleSchoolLogin = (e) => {
+        e.preventDefault();
+        setIsLoading(true); setLoginError('');
+        setTimeout(() => {
+          const school = schoolsDb[schoolLoginForm.schoolCode];
+          if (!school) { setLoginError('ไม่พบรหัสสถานศึกษา "' + schoolLoginForm.schoolCode + '"'); setIsLoading(false); return; }
+          if (school.status === 'inactive') { setLoginError('สถานศึกษานี้ถูกระงับการใช้งาน'); setIsLoading(false); return; }
+          const user = (school.users || []).find(u => u.username === schoolLoginForm.username && u.password === schoolLoginForm.password);
+          if (!user) { setLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'); setIsLoading(false); return; }
+          setSchoolInfo(school);
+          setCurrentUser({ name: user.name, role: user.role, username: user.username });
+          setRole(user.role);
+          setIsSuperAdmin(false);
+          setIsLoggedIn(true);
+          setIsLoading(false);
+        }, 700);
       };
 
       const handleLogout = () => {
-        setIsLoggedIn(false); setSchoolInfo(null);
-        setLoginForm({ schoolCode:'', username:'', password:'' });
-        setActiveMenu('dashboard'); setActivities([]);
+        setIsLoggedIn(false); setIsSuperAdmin(false);
+        setSchoolInfo(null); setCurrentUser(null);
+        setLoginForm({ username:'', password:'' });
+        setSchoolLoginForm({ schoolCode:'', username:'', password:'' });
+        setLoginMode('select'); setActiveMenu('dashboard'); setActivities([]);
+        setLoginError('');
+      };
+
+      // Super Admin: เพิ่มโรงเรียนใหม่
+      const handleAddSchool = (e) => {
+        e.preventDefault();
+        if (!newSchoolForm.id || !newSchoolForm.name) { showToast('กรุณากรอกรหัสและชื่อสถานศึกษา','error'); return; }
+        if (schoolsDb[newSchoolForm.id]) { showToast('รหัสสถานศึกษานี้มีอยู่แล้ว','error'); return; }
+        const school = {
+          id: newSchoolForm.id, name: newSchoolForm.name,
+          province: newSchoolForm.province || '', logo:'', status:'active',
+          users:[{ username:'admin', password:'1234', name:'ผู้ดูแลระบบ', role:'Super Admin' }],
+          activeMenus:['dashboard','proposeActivity','activityMgmt','settings'],
+        };
+        setSchoolsDb(prev => ({ ...prev, [school.id]: school }));
+        setNewSchoolForm({ id:'', name:'', province:'' });
+        showToast('เพิ่มสถานศึกษา "' + school.name + '" สำเร็จ ✅');
+        setSaTab('schools');
+      };
+
+      // Super Admin: toggle สถานะโรงเรียน
+      const handleToggleSchoolStatus = (id) => {
+        setSchoolsDb(prev => {
+          const s = prev[id];
+          return { ...prev, [id]: { ...s, status: s.status==='active'?'inactive':'active' } };
+        });
+        showToast('อัปเดตสถานะสถานศึกษาแล้ว');
+      };
+
+      // Super Admin: เข้าระบบโรงเรียนในฐานะ Admin
+      const handleEnterAsAdmin = (school) => {
+        setSchoolInfo(school);
+        setCurrentUser({ name:'Super Admin (ส่วนกลาง)', role:'Super Admin', username:'superadmin' });
+        setRole('Super Admin');
       };
 
       // ----------------------------------------
@@ -471,10 +556,9 @@
         e.preventDefault();
         if (!budgetForm.activityId || !budgetForm.amount) { showToast('กรุณากรอกข้อมูลให้ครบ','error'); return; }
         setIsSubmittingBudget(true);
-        const selAct = activities.find(a => a.id === budgetForm.activityId);
         const newReq = {
           id: 'REQ-' + Date.now().toString(36).toUpperCase(),
-          activity: selAct?.name || budgetForm.activityId,
+          activity: budgetForm.activityId,
           activityId: budgetForm.activityId,
           amount: parseFloat(budgetForm.amount),
           date: new Date().toLocaleDateString('th-TH'),
@@ -543,69 +627,373 @@
       const usedBudget = budgetRequests.filter(r=>r.status==='อนุมัติแล้ว').reduce((s,r)=>s+(Number(r.amount)||0),0);
 
       // ============================================================
-      // 🖥 RENDER: LOGIN
+      // 🖥 RENDER: LOGIN (2-tier)
       // ============================================================
       if (!isLoggedIn) {
-        return (
-          <div className="min-h-screen bg-brand-light flex items-center justify-center p-4 relative overflow-hidden">
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-primary rounded-full blur-[120px] opacity-20 pointer-events-none"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-gold rounded-full blur-[120px] opacity-20 pointer-events-none"></div>
 
-            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-white/40 relative z-10">
-              <div className="w-full md:w-5/12 bg-brand-navy p-10 flex flex-col justify-between relative overflow-hidden text-white">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary rounded-full blur-[80px] opacity-40 -translate-y-1/2 translate-x-1/2"></div>
-                <div className="relative z-10">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-gold to-yellow-600 flex items-center justify-center text-brand-navy font-bold text-3xl mb-6 shadow-lg">QA</div>
-                  <h1 className="text-3xl font-bold mb-2 leading-tight">ระบบบริหารจัดการแผนและ QA</h1>
-                  <p className="text-slate-300 text-sm opacity-80 leading-relaxed mt-3">บริหารนโยบาย แผนงาน โครงการ กิจกรรม งบประมาณ และการประกันคุณภาพการศึกษาระดับองค์กร</p>
-                  <div className="mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border border-emerald-500/30 text-emerald-400 bg-emerald-500/10">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    เชื่อมต่อ Google Sheets
-                  </div>
+        // ─── Left panel (shared) ───
+        const LeftPanel = () => (
+          <div className="w-full md:w-5/12 bg-brand-navy p-10 flex flex-col justify-between relative overflow-hidden text-white">
+            <div className="absolute top-0 right-0 w-72 h-72 bg-brand-primary rounded-full blur-[90px] opacity-30 -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-brand-gold rounded-full blur-[80px] opacity-10 translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+            <div className="relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-gold to-yellow-600 flex items-center justify-center text-brand-navy font-bold text-2xl mb-6 shadow-lg">QA</div>
+              <h1 className="text-2xl font-bold mb-3 leading-tight">ระบบบริหารจัดการ<br/>แผนและ QA</h1>
+              <p className="text-slate-300 text-xs leading-relaxed opacity-80">บริหารนโยบาย แผนงาน โครงการ กิจกรรม งบประมาณ และการประกันคุณภาพการศึกษาระดับองค์กร</p>
+              <div className="mt-5 flex flex-col gap-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 w-fit">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Google Sheets Connected
                 </div>
-                <div className="relative z-10 mt-12 md:mt-0">
-                  <div className="flex items-center gap-3 text-sm text-slate-400">
-                    <i className="fa-solid fa-shield-halved"></i><span>Secure Cloud Platform</span>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border border-brand-gold/30 text-brand-gold bg-brand-gold/10 w-fit">
+                  <i className="fa-solid fa-shield-halved text-xs"></i>Multi-Tier Access Control
+                </div>
+              </div>
+            </div>
+            <div className="relative z-10 mt-8 space-y-3">
+              <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">ระดับการเข้าถึง</p>
+              {[
+                { icon:'fa-crown', color:'text-brand-gold', label:'ส่วนกลาง (Super Admin)', desc:'จัดการสถานศึกษาทั้งหมด' },
+                { icon:'fa-building-columns', color:'text-indigo-400', label:'สถานศึกษา', desc:'เข้าถึงข้อมูลของตนเอง' },
+              ].map(item => (
+                <div key={item.label} className="flex items-center gap-3">
+                  <div className={`w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center ${item.color}`}><i className={`fa-solid ${item.icon} text-xs`}></i></div>
+                  <div><p className="text-white text-xs font-semibold">{item.label}</p><p className="text-slate-500 text-xs">{item.desc}</p></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+        // ─── Error box ───
+        const ErrorBox = () => loginError ? (
+          <div className="bg-rose-50 text-rose-600 p-3 rounded-xl text-sm mb-5 border border-rose-100 flex items-start gap-2.5 animate-fadeInUp">
+            <i className="fa-solid fa-circle-exclamation mt-0.5 shrink-0"></i><span>{loginError}</span>
+          </div>
+        ) : null;
+
+        // ─── SCREEN A: เลือกประเภท ───
+        if (loginMode === 'select') {
+          return (
+            <div className="min-h-screen bg-brand-light flex items-center justify-center p-4 relative overflow-hidden">
+              <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-primary rounded-full blur-[120px] opacity-15 pointer-events-none"></div>
+              <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-gold rounded-full blur-[120px] opacity-15 pointer-events-none"></div>
+              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-white/40 relative z-10">
+                <LeftPanel />
+                <div className="w-full md:w-7/12 p-10 md:p-14 bg-white flex flex-col justify-center">
+                  <div className="max-w-sm mx-auto w-full">
+                    <h2 className="text-2xl font-bold text-slate-800 mb-1">ยินดีต้อนรับ</h2>
+                    <p className="text-slate-400 text-sm mb-8">กรุณาเลือกประเภทการเข้าสู่ระบบ</p>
+                    <div className="space-y-4">
+                      <button onClick={()=>{ setLoginMode('superadmin'); setLoginError(''); }}
+                        className="w-full group flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-200 hover:border-brand-gold hover:bg-amber-50/30 transition-all duration-200 text-left">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-gold to-yellow-600 flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                          <i className="fa-solid fa-crown text-white text-lg"></i>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-slate-800 text-sm">ส่วนกลาง (Super Admin)</p>
+                          <p className="text-slate-400 text-xs mt-0.5">จัดการสถานศึกษา เพิ่ม/แก้ไข ผู้ใช้งาน</p>
+                        </div>
+                        <i className="fa-solid fa-chevron-right text-slate-300 group-hover:text-brand-gold transition-colors"></i>
+                      </button>
+
+                      <button onClick={()=>{ setLoginMode('school'); setLoginError(''); }}
+                        className="w-full group flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-200 hover:border-brand-primary hover:bg-indigo-50/30 transition-all duration-200 text-left">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-primary to-indigo-700 flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                          <i className="fa-solid fa-building-columns text-white text-lg"></i>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-slate-800 text-sm">สถานศึกษา</p>
+                          <p className="text-slate-400 text-xs mt-0.5">เข้าสู่ระบบด้วยรหัสสถานศึกษาของท่าน</p>
+                        </div>
+                        <i className="fa-solid fa-chevron-right text-slate-300 group-hover:text-brand-primary transition-colors"></i>
+                      </button>
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+                      <p className="text-xs text-slate-400">ระบบบริหารจัดการแผนและ QA • Secure Cloud Platform</p>
+                    </div>
                   </div>
                 </div>
               </div>
+            </div>
+          );
+        }
 
-              <div className="w-full md:w-7/12 p-10 md:p-14 bg-white">
-                <div className="max-w-md mx-auto">
-                  <h2 className="text-2xl font-bold text-slate-800 mb-2">เข้าสู่ระบบสถานศึกษา</h2>
-                  <p className="text-slate-500 text-sm mb-8">กรุณากรอกข้อมูลเพื่อเข้าใช้งานระบบ</p>
-                  {loginError && (
-                    <div className="bg-rose-50 text-rose-600 p-4 rounded-xl text-sm mb-6 border border-rose-100 flex items-start gap-3">
-                      <i className="fa-solid fa-circle-exclamation mt-0.5"></i><span>{loginError}</span>
+        // ─── SCREEN B: Super Admin Login ───
+        if (loginMode === 'superadmin') {
+          return (
+            <div className="min-h-screen bg-brand-light flex items-center justify-center p-4 relative overflow-hidden">
+              <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-gold rounded-full blur-[120px] opacity-15 pointer-events-none"></div>
+              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-white/40 relative z-10">
+                <LeftPanel />
+                <div className="w-full md:w-7/12 p-10 md:p-14 bg-white">
+                  <div className="max-w-sm mx-auto">
+                    <button onClick={()=>{ setLoginMode('select'); setLoginError(''); }} className="flex items-center gap-2 text-slate-400 hover:text-slate-700 text-sm mb-6 transition">
+                      <i className="fa-solid fa-arrow-left text-xs"></i> กลับ
+                    </button>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-gold to-yellow-600 flex items-center justify-center shadow-md">
+                        <i className="fa-solid fa-crown text-white"></i>
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-800">เข้าสู่ระบบส่วนกลาง</h2>
+                        <p className="text-slate-400 text-xs">Super Admin เท่านั้น</p>
+                      </div>
                     </div>
-                  )}
-                  <form onSubmit={handleLogin} className="space-y-5">
+                    <ErrorBox />
+                    <form onSubmit={handleSuperAdminLogin} className="space-y-4">
+                      {[
+                        { key:'username', label:'ชื่อผู้ใช้งาน', icon:'fa-user-shield', type:'text', placeholder:'superadmin' },
+                        { key:'password', label:'รหัสผ่าน', icon:'fa-lock', type:'password', placeholder:'••••••••' },
+                      ].map(f => (
+                        <div key={f.key}>
+                          <label className="block text-sm font-semibold text-slate-700 mb-1.5">{f.label}</label>
+                          <div className="relative group">
+                            <i className={`fa-solid ${f.icon} absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-gold transition-colors`}></i>
+                            <input type={f.type} required value={loginForm[f.key]}
+                              onChange={e => setLoginForm({...loginForm, [f.key]: e.target.value})}
+                              className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-gold focus:ring-4 focus:ring-brand-gold/10 transition-all bg-slate-50 hover:bg-white focus:bg-white"
+                              placeholder={f.placeholder} />
+                          </div>
+                        </div>
+                      ))}
+                      <button type="submit" disabled={isLoading}
+                        className="w-full bg-gradient-to-r from-brand-gold to-yellow-500 hover:from-yellow-500 hover:to-brand-gold text-brand-navy font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-brand-gold/30 mt-2 flex justify-center items-center gap-2 disabled:opacity-70">
+                        {isLoading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <><i className="fa-solid fa-crown"></i> เข้าสู่ระบบ</>}
+                      </button>
+                    </form>
+                    <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
+                      <i className="fa-solid fa-circle-info mr-1.5"></i>Demo: <span className="font-mono font-bold">superadmin / admin1234</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // ─── SCREEN C: School Login ───
+        return (
+          <div className="min-h-screen bg-brand-light flex items-center justify-center p-4 relative overflow-hidden">
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-primary rounded-full blur-[120px] opacity-15 pointer-events-none"></div>
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row border border-white/40 relative z-10">
+              <LeftPanel />
+              <div className="w-full md:w-7/12 p-10 md:p-14 bg-white">
+                <div className="max-w-sm mx-auto">
+                  <button onClick={()=>{ setLoginMode('select'); setLoginError(''); }} className="flex items-center gap-2 text-slate-400 hover:text-slate-700 text-sm mb-6 transition">
+                    <i className="fa-solid fa-arrow-left text-xs"></i> กลับ
+                  </button>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-primary to-indigo-700 flex items-center justify-center shadow-md">
+                      <i className="fa-solid fa-building-columns text-white"></i>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-slate-800">เข้าสู่ระบบสถานศึกษา</h2>
+                      <p className="text-slate-400 text-xs">กรอกรหัสสถานศึกษาและข้อมูลผู้ใช้งาน</p>
+                    </div>
+                  </div>
+                  <ErrorBox />
+                  <form onSubmit={handleSchoolLogin} className="space-y-4">
                     {[
-                      { key:'schoolCode', label:'รหัสสถานศึกษา', icon:'fa-building', type:'text', placeholder:'เช่น 1001 หรือ 1002' },
-                      { key:'username', label:'ชื่อผู้ใช้งาน', icon:'fa-regular fa-user', type:'text', placeholder:'admin' },
-                      { key:'password', label:'รหัสผ่าน', icon:'fa-lock', type:'password', placeholder:'••••••••' },
+                      { key:'schoolCode', label:'รหัสสถานศึกษา', icon:'fa-hashtag', type:'text', placeholder:'เช่น 1001' },
+                      { key:'username',   label:'ชื่อผู้ใช้งาน', icon:'fa-user',    type:'text', placeholder:'username' },
+                      { key:'password',   label:'รหัสผ่าน',       icon:'fa-lock',   type:'password', placeholder:'••••••••' },
                     ].map(f => (
                       <div key={f.key}>
                         <label className="block text-sm font-semibold text-slate-700 mb-1.5">{f.label}</label>
                         <div className="relative group">
                           <i className={`fa-solid ${f.icon} absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors`}></i>
-                          <input type={f.type} required value={loginForm[f.key]}
-                            onChange={e => setLoginForm({...loginForm, [f.key]: e.target.value})}
+                          <input type={f.type} required value={schoolLoginForm[f.key]}
+                            onChange={e => setSchoolLoginForm({...schoolLoginForm, [f.key]: e.target.value})}
                             className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white"
                             placeholder={f.placeholder} />
                         </div>
                       </div>
                     ))}
-                    <button type="submit" disabled={isLoading} className="w-full bg-brand-primary hover:bg-indigo-700 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-brand-primary/30 mt-8 flex justify-center items-center gap-2 disabled:opacity-70">
-                      {isLoading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <>เข้าสู่ระบบ <i className="fa-solid fa-arrow-right ml-1"></i></>}
+                    <button type="submit" disabled={isLoading}
+                      className="w-full bg-brand-primary hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-brand-primary/30 mt-2 flex justify-center items-center gap-2 disabled:opacity-70">
+                      {isLoading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <><i className="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ</>}
                     </button>
                   </form>
+                  <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 space-y-0.5">
+                    <p><i className="fa-solid fa-circle-info mr-1.5"></i><span className="font-semibold">Demo โรงเรียน 1001:</span></p>
+                    <p className="font-mono ml-4">director01 / 1234 &nbsp;|&nbsp; qa01 / 1234</p>
+                    <p className="font-mono ml-4">teacher01 / 1234 &nbsp;|&nbsp; manager01 / 1234</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         );
       }
+
+      // ============================================================
+      // 🖥 RENDER: SUPER ADMIN DASHBOARD (ส่วนกลาง)
+      // ============================================================
+      if (isSuperAdmin && !schoolInfo) {
+        const schoolList = Object.values(schoolsDb);
+        return (
+          <div className="min-h-screen bg-brand-light font-sans">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={()=>setToast(null)} />}
+            {confirmModal && (
+              <ConfirmModal title={confirmModal.title} message={confirmModal.message}
+                confirmLabel={confirmModal.confirmLabel} confirmClass={confirmModal.confirmClass}
+                onConfirm={()=>{ confirmModal.onConfirm(); setConfirmModal(null); }}
+                onCancel={()=>setConfirmModal(null)} />
+            )}
+
+            {/* SA Header */}
+            <header className="bg-brand-navy border-b border-slate-800 px-8 py-4 flex items-center justify-between sticky top-0 z-20">
+              <div className="flex items-center gap-4">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-gold to-yellow-600 flex items-center justify-center text-brand-navy font-bold shadow-glow shrink-0">QA</div>
+                <div>
+                  <h1 className="text-white font-bold text-sm leading-tight">ระบบบริหารจัดการ — ส่วนกลาง</h1>
+                  <p className="text-slate-400 text-xs">Super Admin Dashboard</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-full px-3 py-1.5 text-xs font-bold text-brand-gold flex items-center gap-2">
+                  <i className="fa-solid fa-crown text-xs"></i>{currentUser?.name}
+                </div>
+                <button onClick={handleLogout} className="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-rose-900/40 hover:text-rose-400 transition" title="ออกจากระบบ">
+                  <i className="fa-solid fa-power-off text-sm"></i>
+                </button>
+              </div>
+            </header>
+
+            <div className="max-w-6xl mx-auto px-8 py-8">
+              {/* Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <StatCard title="สถานศึกษาทั้งหมด" value={schoolList.length} colorClass="bg-indigo-50 text-brand-primary" icon="fa-solid fa-building-columns" />
+                <StatCard title="เปิดใช้งาน" value={schoolList.filter(s=>s.status==='active').length} colorClass="bg-emerald-50 text-emerald-600" icon="fa-solid fa-circle-check" />
+                <StatCard title="ระงับการใช้งาน" value={schoolList.filter(s=>s.status==='inactive').length} colorClass="bg-rose-50 text-rose-600" icon="fa-solid fa-ban" />
+                <StatCard title="ผู้ใช้งานรวม" value={schoolList.reduce((s,sc)=>s+(sc.users||[]).length,0)} colorClass="bg-amber-50 text-amber-600" icon="fa-solid fa-users" />
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-2 mb-6 border-b border-slate-200">
+                {[{id:'schools',icon:'fa-building-columns',label:'รายชื่อสถานศึกษา'},{id:'addSchool',icon:'fa-circle-plus',label:'เพิ่มสถานศึกษา'}].map(tab=>(
+                  <button key={tab.id} onClick={()=>setSaTab(tab.id)}
+                    className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-all -mb-px ${saTab===tab.id?'border-brand-primary text-brand-primary':'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                    <i className={`fa-solid ${tab.icon} text-xs`}></i>{tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab: รายชื่อโรงเรียน */}
+              {saTab === 'schools' && (
+                <div className="animate-fadeInUp">
+                  <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
+                            <th className="px-6 py-3.5 font-semibold">รหัส</th>
+                            <th className="px-6 py-3.5 font-semibold">ชื่อสถานศึกษา</th>
+                            <th className="px-6 py-3.5 font-semibold">จังหวัด</th>
+                            <th className="px-6 py-3.5 font-semibold text-center">ผู้ใช้งาน</th>
+                            <th className="px-6 py-3.5 font-semibold text-center">เมนูที่เปิด</th>
+                            <th className="px-6 py-3.5 font-semibold text-center">สถานะ</th>
+                            <th className="px-6 py-3.5 font-semibold text-center">จัดการ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-sm">
+                          {schoolList.map(school => (
+                            <tr key={school.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-6 py-4 font-mono text-xs text-slate-500">{school.id}</td>
+                              <td className="px-6 py-4">
+                                <p className="font-semibold text-slate-800">{school.name}</p>
+                              </td>
+                              <td className="px-6 py-4 text-slate-500 text-xs">{school.province||'-'}</td>
+                              <td className="px-6 py-4 text-center">
+                                <span className="bg-indigo-50 text-brand-primary px-2.5 py-1 rounded-full text-xs font-bold">{(school.users||[]).length} คน</span>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-bold">{(school.activeMenus||[]).length} เมนู</span>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${school.status==='active'?'bg-emerald-50 text-emerald-600':'bg-rose-50 text-rose-600'}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${school.status==='active'?'bg-emerald-500':'bg-rose-500'}`}></span>
+                                  {school.status==='active'?'เปิดใช้งาน':'ระงับ'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button onClick={()=>handleEnterAsAdmin(school)}
+                                    className="bg-indigo-50 text-brand-primary hover:bg-brand-primary hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1" title="เข้าระบบในฐานะ Admin">
+                                    <i className="fa-solid fa-arrow-right-to-bracket"></i> เข้าระบบ
+                                  </button>
+                                  <button onClick={()=>setConfirmModal({
+                                    title: school.status==='active'?'ระงับสถานศึกษา':'เปิดใช้งานสถานศึกษา',
+                                    message:`${school.status==='active'?'ระงับ':'เปิดใช้งาน'} "${school.name}" ?`,
+                                    confirmLabel: school.status==='active'?'ระงับ':'เปิดใช้งาน',
+                                    confirmClass: school.status==='active'?'bg-rose-500 hover:bg-rose-600':'bg-emerald-500 hover:bg-emerald-600',
+                                    onConfirm: ()=>handleToggleSchoolStatus(school.id)
+                                  })} className={`w-8 h-8 rounded-lg inline-flex items-center justify-center transition ${school.status==='active'?'text-slate-400 hover:text-rose-600 hover:bg-rose-50':'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}>
+                                    <i className={`fa-solid ${school.status==='active'?'fa-ban':'fa-circle-check'} text-sm`}></i>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab: เพิ่มโรงเรียน */}
+              {saTab === 'addSchool' && (
+                <div className="max-w-xl animate-fadeInUp">
+                  <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+                    <div className="bg-gradient-to-r from-brand-primary to-indigo-600 p-6 text-white">
+                      <h3 className="font-bold text-lg mb-0.5">เพิ่มสถานศึกษาใหม่</h3>
+                      <p className="text-indigo-200 text-xs">ระบบจะสร้าง user admin เริ่มต้น (admin / 1234) ให้อัตโนมัติ</p>
+                    </div>
+                    <form onSubmit={handleAddSchool} className="p-6 space-y-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">รหัสสถานศึกษา <span className="text-rose-500">*</span></label>
+                        <input type="text" required value={newSchoolForm.id}
+                          onChange={e=>setNewSchoolForm({...newSchoolForm,id:e.target.value})}
+                          className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition font-mono"
+                          placeholder="เช่น 1003" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">ชื่อสถานศึกษา <span className="text-rose-500">*</span></label>
+                        <input type="text" required value={newSchoolForm.name}
+                          onChange={e=>setNewSchoolForm({...newSchoolForm,name:e.target.value})}
+                          className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition"
+                          placeholder="ชื่อโรงเรียน / สถานศึกษา" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">จังหวัด</label>
+                        <input type="text" value={newSchoolForm.province}
+                          onChange={e=>setNewSchoolForm({...newSchoolForm,province:e.target.value})}
+                          className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition"
+                          placeholder="จังหวัด" />
+                      </div>
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700 flex items-start gap-2">
+                        <i className="fa-solid fa-circle-info mt-0.5 shrink-0"></i>
+                        <span>หลังสร้างแล้ว ให้กด "เข้าระบบ" เพื่อเข้าไปตั้งค่าเพิ่มเติม เช่น เมนู ผู้ใช้งาน โลโก้</span>
+                      </div>
+                      <div className="flex justify-end gap-3 pt-2">
+                        <button type="button" onClick={()=>setSaTab('schools')} className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-sm transition">ยกเลิก</button>
+                        <button type="submit" className="px-6 py-2.5 rounded-xl bg-brand-primary hover:bg-indigo-700 text-white font-semibold text-sm transition shadow-lg shadow-brand-primary/30 flex items-center gap-2">
+                          <i className="fa-solid fa-plus"></i> เพิ่มสถานศึกษา
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      // Super Admin กดเข้าโรงเรียน → แสดง back button ใน header
+      const isEnteringAsAdmin = isSuperAdmin && !!schoolInfo;
 
       // ============================================================
       // 🖥 RENDER: MAIN APP
@@ -657,15 +1045,29 @@
               })}
             </nav>
 
-            <div className="p-5 border-t border-slate-800 bg-slate-900/50">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">บทบาทผู้ใช้งาน</p>
-              <div className="relative">
-                <select value={role} onChange={e => { setRole(e.target.value); setActiveMenu('dashboard'); }}
-                  className="w-full bg-slate-800 text-white border border-slate-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary appearance-none cursor-pointer hover:bg-slate-700 transition">
-                  {['Super Admin','QA Admin','Director','Manager','Teacher'].map(r => <option key={r}>{r}</option>)}
-                </select>
-                <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+            <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-brand-primary/20 flex items-center justify-center text-brand-gold font-bold text-sm shrink-0">
+                  {currentUser?.name?.charAt(0) || 'U'}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-white text-xs font-semibold truncate">{currentUser?.name || 'ผู้ใช้งาน'}</p>
+                  <p className="text-slate-400 text-xs truncate">{currentUser?.username}</p>
+                </div>
               </div>
+              {isSuperAdmin ? (
+                <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-xl px-3 py-2 text-xs font-bold text-brand-gold flex items-center gap-2">
+                  <i className="fa-solid fa-crown text-xs"></i> Super Admin (ส่วนกลาง)
+                </div>
+              ) : (
+                <div className="relative">
+                  <select value={role} onChange={e => { setRole(e.target.value); setActiveMenu('dashboard'); }}
+                    className="w-full bg-slate-800 text-white border border-slate-700 rounded-xl px-3 py-2 text-xs outline-none focus:border-brand-primary appearance-none cursor-pointer hover:bg-slate-700 transition">
+                    {['Super Admin','QA Admin','Director','Manager','Teacher'].map(r => <option key={r}>{r}</option>)}
+                  </select>
+                  <i className="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                </div>
+              )}
             </div>
           </aside>
 
@@ -696,7 +1098,25 @@
                     </span>
                   )}
                 </div>
-                <div className="w-9 h-9 rounded-full bg-brand-navy text-brand-gold flex items-center justify-center font-bold text-sm shadow-md">{role.charAt(0)}</div>
+                <div className="hidden md:flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-brand-navy text-brand-gold flex items-center justify-center font-bold text-sm shadow-md">{currentUser?.name?.charAt(0)||'A'}</div>
+                  <div className="hidden lg:block text-right">
+                    <p className="text-xs font-bold text-slate-800 leading-tight">{currentUser?.name}</p>
+                    <p className="text-xs text-slate-400">{isSuperAdmin?'ส่วนกลาง':currentUser?.role}</p>
+                  </div>
+                </div>
+                {isEnteringAsAdmin && (
+                  <button onClick={()=>setSchoolInfo(null)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-gold/10 text-brand-gold hover:bg-brand-gold/20 text-xs font-bold transition" title="กลับหน้าส่วนกลาง">
+                    <i className="fa-solid fa-arrow-left text-xs"></i> กลับส่วนกลาง
+                  </button>
+                )}
+                {isEnteringAsAdmin && (
+                  <button onClick={()=>setSchoolInfo(null)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-200 text-xs font-bold transition">
+                    <i className="fa-solid fa-arrow-left text-xs"></i> กลับส่วนกลาง
+                  </button>
+                )}
                 <button onClick={handleLogout} className="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition" title="ออกจากระบบ">
                   <i className="fa-solid fa-power-off text-sm"></i>
                 </button>
@@ -1192,12 +1612,10 @@
                         <form onSubmit={handleSubmitBudget} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">กิจกรรมที่ขอเบิก <span className="text-rose-500">*</span></label>
-                            <select required value={budgetForm.activityId} onChange={e=>setBudgetForm({...budgetForm,activityId:e.target.value})}
-                              className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all">
-                              <option value="">-- เลือกกิจกรรมที่ได้รับอนุมัติ --</option>
-                              {approvedActivities.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
-                              {approvedActivities.length === 0 && <option disabled>ยังไม่มีกิจกรรมที่ได้รับอนุมัติ</option>}
-                            </select>
+                            <input type="text" required value={budgetForm.activityId}
+                              onChange={e=>setBudgetForm({...budgetForm, activityId:e.target.value})}
+                              className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all"
+                              placeholder="ระบุชื่อกิจกรรมที่ต้องการเบิกงบ..." />
                           </div>
                           <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">ยอดเงินที่ขอเบิก (บาท) <span className="text-rose-500">*</span></label>
