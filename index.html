@@ -297,6 +297,8 @@
       const [showUserForm, setShowUserForm] = useState(false);
       const [userForm, setUserForm] = useState({ name:'', username:'', password:'', role:'Teacher' });
       const [editingUser, setEditingUser] = useState(null); // username ที่กำลังแก้ไข
+      const [showPassword, setShowPassword] = useState(false);  // toggle แสดง/ซ่อน password ในฟอร์ม
+      const [showPwMap, setShowPwMap] = useState({});           // toggle แสดงรหัสในตาราง { username: bool }
 
       // Activity Form
       const [activityForm, setActivityForm] = useState({ project:'', name:'', budget:'', description:'' });
@@ -635,7 +637,10 @@
       const handleEditUser = (user) => {
         setUserForm({ name: user.name, username: user.username, password: user.password, role: user.role });
         setEditingUser(user.username);
+        setShowPassword(false);
         setShowUserForm(true);
+        // scroll to form
+        setTimeout(()=>{ const el=document.getElementById('user-form-top'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }, 50);
       };
 
       // Settings
@@ -1829,75 +1834,197 @@
                 {/* ── USERS ── */}
                 {activeMenu === 'users' && (
                   <div className="space-y-5 animate-fadeInUp">
+
+                    {/* Header */}
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div>
                         <h3 className="text-xl font-bold text-slate-800">จัดการผู้ใช้งาน</h3>
-                        <p className="text-slate-400 text-sm mt-0.5">บริหารบัญชีผู้ใช้งาน บทบาท และสิทธิ์การเข้าถึงของ {schoolInfo?.name}</p>
+                        <p className="text-slate-400 text-sm mt-0.5">บริหารบัญชี บทบาท และรหัสผ่านของ <span className="text-brand-primary font-semibold">{schoolInfo?.name}</span></p>
                       </div>
-                      <button onClick={()=>{ setUserForm({name:'',username:'',password:'',role:'Teacher'}); setEditingUser(null); setShowUserForm(v=>!v); }}
-                        className="bg-brand-navy text-brand-gold px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-slate-800 transition shadow-lg shadow-brand-navy/20 whitespace-nowrap">
-                        <i className={`fa-solid ${showUserForm?'fa-minus':'fa-user-plus'}`}></i>
-                        {showUserForm ? 'ยุบฟอร์ม' : 'เพิ่มผู้ใช้งาน'}
+                      <button onClick={()=>{
+                        if (showUserForm && !editingUser) { setShowUserForm(false); return; }
+                        setUserForm({name:'',username:'',password:'',role:'Teacher'});
+                        setEditingUser(null); setShowPassword(false); setShowUserForm(true);
+                        setTimeout(()=>{ const el=document.getElementById('user-form-top'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'}); }, 50);
+                      }}
+                        className={`px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition shadow-lg whitespace-nowrap ${showUserForm&&!editingUser?'bg-slate-200 text-slate-700 hover:bg-slate-300':'bg-brand-navy text-brand-gold hover:bg-slate-800 shadow-brand-navy/20'}`}>
+                        <i className={`fa-solid ${showUserForm&&!editingUser?'fa-minus':'fa-user-plus'}`}></i>
+                        {showUserForm && !editingUser ? 'ยุบฟอร์ม' : 'เพิ่มผู้ใช้งาน'}
                       </button>
                     </div>
 
-                    {/* Add / Edit User Form */}
+                    {/* ── Add / Edit Form ── */}
                     {showUserForm && (
-                      <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden animate-fadeInUp">
-                        <div className="bg-gradient-to-r from-brand-navy to-slate-700 p-5 text-white">
-                          <h4 className="font-bold">{editingUser ? 'แก้ไขผู้ใช้งาน' : 'เพิ่มผู้ใช้งานใหม่'}</h4>
-                          <p className="text-slate-300 text-xs mt-0.5">{schoolInfo?.name}</p>
+                      <div id="user-form-top" className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden animate-fadeInUp">
+                        {/* Form header */}
+                        <div className={`p-5 text-white flex items-center justify-between ${editingUser?'bg-gradient-to-r from-amber-500 to-orange-500':'bg-gradient-to-r from-brand-navy to-slate-700'}`}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
+                              <i className={`fa-solid ${editingUser?'fa-user-pen':'fa-user-plus'} text-sm`}></i>
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-sm">{editingUser ? `แก้ไขข้อมูล — ${userForm.name}` : 'เพิ่มผู้ใช้งานใหม่'}</h4>
+                              <p className="text-white/60 text-xs mt-0.5">{schoolInfo?.name}</p>
+                            </div>
+                          </div>
+                          <button type="button" onClick={()=>{ setShowUserForm(false); setEditingUser(null); }}
+                            className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition">
+                            <i className="fa-solid fa-xmark text-xs"></i>
+                          </button>
                         </div>
-                        <form onSubmit={handleAddUser} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">ชื่อ-นามสกุล <span className="text-rose-500">*</span></label>
-                            <input type="text" required value={userForm.name} onChange={e=>setUserForm({...userForm,name:e.target.value})}
-                              className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition"
-                              placeholder="ชื่อ นามสกุล" />
+
+                        <form onSubmit={handleAddUser} className="p-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                            {/* ชื่อ-นามสกุล */}
+                            <div>
+                              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                                ชื่อ-นามสกุล <span className="text-rose-500">*</span>
+                              </label>
+                              <div className="relative group">
+                                <i className="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary text-sm transition-colors"></i>
+                                <input type="text" required value={userForm.name}
+                                  onChange={e=>setUserForm({...userForm,name:e.target.value})}
+                                  className="w-full border-2 border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition"
+                                  placeholder="ชื่อ นามสกุล" />
+                              </div>
+                            </div>
+
+                            {/* Username */}
+                            <div>
+                              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                                ชื่อผู้ใช้งาน (Username) <span className="text-rose-500">*</span>
+                                {editingUser && <span className="ml-2 text-xs font-normal text-slate-400">(ไม่สามารถเปลี่ยนได้)</span>}
+                              </label>
+                              <div className="relative group">
+                                <i className="fa-solid fa-at absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary text-sm transition-colors"></i>
+                                <input type="text" required value={userForm.username}
+                                  onChange={e=>setUserForm({...userForm,username:e.target.value})}
+                                  disabled={!!editingUser}
+                                  className="w-full border-2 border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition font-mono disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                                  placeholder="กำหนด username" />
+                              </div>
+                            </div>
+
+                            {/* Password */}
+                            <div>
+                              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                                รหัสผ่าน <span className="text-rose-500">*</span>
+                              </label>
+                              <div className="relative group">
+                                <i className="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary text-sm transition-colors"></i>
+                                <input
+                                  type={showPassword ? 'text' : 'password'}
+                                  required value={userForm.password}
+                                  onChange={e=>setUserForm({...userForm,password:e.target.value})}
+                                  className="w-full border-2 border-slate-200 rounded-xl pl-10 pr-12 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition font-mono"
+                                  placeholder="กำหนดรหัสผ่าน" />
+                                <button type="button" onClick={()=>setShowPassword(v=>!v)}
+                                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition text-sm p-1">
+                                  <i className={`fa-solid ${showPassword?'fa-eye-slash':'fa-eye'}`}></i>
+                                </button>
+                              </div>
+                              {/* Password strength indicator */}
+                              {userForm.password && (
+                                <div className="mt-2">
+                                  {(() => {
+                                    const p = userForm.password;
+                                    const score = [p.length>=8, /[A-Z]/.test(p), /[0-9]/.test(p), /[^A-Za-z0-9]/.test(p)].filter(Boolean).length;
+                                    const levels = [{label:'อ่อนมาก',color:'bg-rose-500',w:'w-1/4'},{label:'อ่อน',color:'bg-orange-500',w:'w-2/4'},{label:'ปานกลาง',color:'bg-amber-500',w:'w-3/4'},{label:'แข็งแรง',color:'bg-emerald-500',w:'w-full'}];
+                                    const lv = levels[Math.max(0,score-1)];
+                                    return (
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                          <div className={`h-full rounded-full transition-all ${lv.color} ${lv.w}`}></div>
+                                        </div>
+                                        <span className={`text-xs font-semibold ${score<=1?'text-rose-500':score===2?'text-orange-500':score===3?'text-amber-500':'text-emerald-600'}`}>{lv.label}</span>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Role */}
+                            <div>
+                              <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                                บทบาท (Role) <span className="text-rose-500">*</span>
+                              </label>
+                              <div className="relative">
+                                <i className="fa-solid fa-shield-halved absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                                <select required value={userForm.role}
+                                  onChange={e=>setUserForm({...userForm,role:e.target.value})}
+                                  className="w-full border-2 border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition appearance-none cursor-pointer">
+                                  {[
+                                    {value:'Super Admin', label:'Super Admin — จัดการทุกอย่าง'},
+                                    {value:'Director',    label:'Director — ผู้อำนวยการ / อนุมัติโครงการ'},
+                                    {value:'QA Admin',    label:'QA Admin — กลั่นกรองกิจกรรม'},
+                                    {value:'Manager',     label:'Manager — อนุมัติงบประมาณ'},
+                                    {value:'Teacher',     label:'Teacher — เสนอและติดตามกิจกรรม'},
+                                  ].map(r=><option key={r.value} value={r.value}>{r.label}</option>)}
+                                </select>
+                                <i className="fa-solid fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                              </div>
+                              {/* Role description chip */}
+                              {(() => {
+                                const desc = {
+                                  'Super Admin': {text:'เข้าถึงได้ทุกหน้า', color:'bg-purple-50 text-purple-600 border-purple-200'},
+                                  'Director':    {text:'อนุมัติโครงการและกิจกรรม', color:'bg-indigo-50 text-indigo-600 border-indigo-200'},
+                                  'QA Admin':    {text:'กลั่นกรองก่อนส่ง ผอ.', color:'bg-amber-50 text-amber-600 border-amber-200'},
+                                  'Manager':     {text:'อนุมัติการเบิกจ่าย', color:'bg-orange-50 text-orange-600 border-orange-200'},
+                                  'Teacher':     {text:'เสนอกิจกรรม ขอเบิกงบ', color:'bg-emerald-50 text-emerald-600 border-emerald-200'},
+                                }[userForm.role];
+                                return desc ? (
+                                  <p className={`mt-1.5 text-xs px-2 py-1 rounded-lg border inline-flex items-center gap-1 ${desc.color}`}>
+                                    <i className="fa-solid fa-circle-info text-xs"></i>{desc.text}
+                                  </p>
+                                ) : null;
+                              })()}
+                            </div>
                           </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">ชื่อผู้ใช้งาน (username) <span className="text-rose-500">*</span></label>
-                            <input type="text" required value={userForm.username} onChange={e=>setUserForm({...userForm,username:e.target.value})}
-                              disabled={!!editingUser}
-                              className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition font-mono disabled:bg-slate-50 disabled:text-slate-400"
-                              placeholder="username" />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">รหัสผ่าน <span className="text-rose-500">*</span></label>
-                            <input type="text" required value={userForm.password} onChange={e=>setUserForm({...userForm,password:e.target.value})}
-                              className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition font-mono"
-                              placeholder="รหัสผ่าน" />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">บทบาท (Role) <span className="text-rose-500">*</span></label>
-                            <select required value={userForm.role} onChange={e=>setUserForm({...userForm,role:e.target.value})}
-                              className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition appearance-none">
-                              {['Super Admin','Director','QA Admin','Manager','Teacher'].map(r=><option key={r}>{r}</option>)}
-                            </select>
-                          </div>
-                          <div className="md:col-span-2 flex justify-end gap-3 pt-2">
-                            <button type="button" onClick={()=>{ setShowUserForm(false); setEditingUser(null); }}
-                              className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-sm transition">ยกเลิก</button>
-                            <button type="submit"
-                              className="px-6 py-2.5 rounded-xl bg-brand-navy hover:bg-slate-800 text-brand-gold font-semibold text-sm transition shadow-lg flex items-center gap-2">
-                              <i className={`fa-solid ${editingUser?'fa-save':'fa-user-plus'}`}></i>
-                              {editingUser ? 'บันทึกการแก้ไข' : 'เพิ่มผู้ใช้งาน'}
-                            </button>
+
+                          {/* Actions */}
+                          <div className="flex justify-between items-center mt-6 pt-5 border-t border-slate-100">
+                            <div className="text-xs text-slate-400 flex items-center gap-1.5">
+                              <i className="fa-solid fa-circle-info"></i>
+                              {editingUser ? 'username ไม่สามารถเปลี่ยนได้หลังสร้างแล้ว' : 'username ต้องไม่ซ้ำกันในสถานศึกษา'}
+                            </div>
+                            <div className="flex gap-3">
+                              <button type="button"
+                                onClick={()=>{ setShowUserForm(false); setEditingUser(null); setShowPassword(false); }}
+                                className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-sm transition">
+                                ยกเลิก
+                              </button>
+                              <button type="submit"
+                                className={`px-6 py-2.5 rounded-xl text-white font-semibold text-sm transition shadow-lg flex items-center gap-2 ${editingUser?'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30':'bg-brand-navy hover:bg-slate-800 shadow-brand-navy/20 text-brand-gold'}`}>
+                                <i className={`fa-solid ${editingUser?'fa-floppy-disk':'fa-user-plus'}`}></i>
+                                {editingUser ? 'บันทึกการแก้ไข' : 'สร้างผู้ใช้งาน'}
+                              </button>
+                            </div>
                           </div>
                         </form>
                       </div>
                     )}
 
                     {/* Stats row */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {['Super Admin','Director','QA Admin','Teacher','Manager'].map(r=>{
-                        const count = schoolUsers.filter(u=>u.role===r).length;
-                        if (count===0) return null;
-                        const colors = {'Super Admin':'bg-purple-50 text-purple-600','Director':'bg-indigo-50 text-indigo-600','QA Admin':'bg-amber-50 text-amber-600','Teacher':'bg-emerald-50 text-emerald-600','Manager':'bg-orange-50 text-orange-600'};
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      {[
+                        {role:'Super Admin', icon:'fa-crown',       color:'bg-purple-50 text-purple-600 border-purple-100'},
+                        {role:'Director',    icon:'fa-signature',   color:'bg-indigo-50 text-indigo-600 border-indigo-100'},
+                        {role:'QA Admin',    icon:'fa-clipboard-check', color:'bg-amber-50 text-amber-600 border-amber-100'},
+                        {role:'Manager',     icon:'fa-wallet',      color:'bg-orange-50 text-orange-600 border-orange-100'},
+                        {role:'Teacher',     icon:'fa-chalkboard-user', color:'bg-emerald-50 text-emerald-600 border-emerald-100'},
+                      ].map(item=>{
+                        const count = schoolUsers.filter(u=>u.role===item.role).length;
                         return (
-                          <div key={r} className={`${colors[r]||'bg-slate-50 text-slate-600'} rounded-xl p-3 text-center`}>
-                            <p className="text-2xl font-bold">{count}</p>
-                            <p className="text-xs font-semibold mt-0.5">{r}</p>
+                          <div key={item.role} className={`${item.color} border rounded-xl p-3 flex items-center gap-3`}>
+                            <div className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center shrink-0">
+                              <i className={`fa-solid ${item.icon} text-sm`}></i>
+                            </div>
+                            <div>
+                              <p className="text-xl font-bold leading-tight">{count}</p>
+                              <p className="text-xs font-medium opacity-80 leading-tight">{item.role}</p>
+                            </div>
                           </div>
                         );
                       })}
@@ -1906,80 +2033,149 @@
                     {/* Users table */}
                     <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
                       <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50/50">
-                        <h4 className="font-bold text-slate-800">รายชื่อผู้ใช้งาน ({schoolUsers.length} คน)</h4>
+                        <div>
+                          <h4 className="font-bold text-slate-800">รายชื่อผู้ใช้งาน</h4>
+                          <p className="text-xs text-slate-400 mt-0.5">{schoolUsers.length} บัญชี ใน {schoolInfo?.name}</p>
+                        </div>
                         <div className="relative">
                           <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                          <input type="text" placeholder="ค้นหาผู้ใช้..." value={userSearch} onChange={e=>setUserSearch(e.target.value)}
-                            className="border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-sm outline-none focus:border-brand-primary w-48" />
+                          <input type="text" placeholder="ค้นหาชื่อหรือ username..." value={userSearch}
+                            onChange={e=>setUserSearch(e.target.value)}
+                            className="border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-sm outline-none focus:border-brand-primary w-52" />
                         </div>
                       </div>
+
                       <div className="overflow-x-auto">
                         <table className="w-full text-left">
                           <thead>
                             <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
-                              <th className="px-5 py-3.5 font-semibold">ชื่อ-นามสกุล</th>
-                              <th className="px-5 py-3.5 font-semibold">ชื่อผู้ใช้</th>
+                              <th className="px-5 py-3.5 font-semibold">ผู้ใช้งาน</th>
+                              <th className="px-5 py-3.5 font-semibold">Username</th>
                               <th className="px-5 py-3.5 font-semibold">รหัสผ่าน</th>
                               <th className="px-5 py-3.5 font-semibold">บทบาท</th>
                               <th className="px-5 py-3.5 font-semibold text-center">จัดการ</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 text-sm">
-                            {schoolUsers.filter(u=>!userSearch||u.name?.toLowerCase().includes(userSearch.toLowerCase())||u.username?.toLowerCase().includes(userSearch.toLowerCase())).map((user,i) => (
-                              <tr key={user.username} className={`hover:bg-slate-50 transition-colors ${user.username===currentUser?.username?'bg-indigo-50/30':''}`}>
-                                <td className="px-5 py-3.5 flex items-center gap-3">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${user.username===currentUser?.username?'bg-brand-primary text-white':'bg-indigo-100 text-brand-primary'}`}>
-                                    {user.name?.charAt(0)||'?'}
-                                  </div>
-                                  <div>
-                                    <p className="font-semibold text-slate-800 text-sm">{user.name}</p>
-                                    {user.username===currentUser?.username && <p className="text-xs text-brand-primary font-medium">บัญชีของคุณ</p>}
-                                  </div>
-                                </td>
-                                <td className="px-5 py-3.5 text-slate-500 font-mono text-xs">{user.username}</td>
-                                <td className="px-5 py-3.5">
-                                  <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded-lg text-slate-500 tracking-widest">{'•'.repeat(Math.min(user.password?.length||4,8))}</span>
-                                </td>
-                                <td className="px-5 py-3.5">
-                                  {(() => {
-                                    const roleColors = {'Super Admin':'bg-purple-100 text-purple-700 border-purple-200','Director':'bg-indigo-100 text-indigo-700 border-indigo-200','QA Admin':'bg-amber-100 text-amber-700 border-amber-200','Teacher':'bg-emerald-100 text-emerald-700 border-emerald-200','Manager':'bg-orange-100 text-orange-700 border-orange-200'};
-                                    return <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${roleColors[user.role]||'bg-slate-100 text-slate-600 border-slate-200'}`}>{user.role}</span>;
-                                  })()}
-                                </td>
-                                <td className="px-5 py-3.5 text-center">
-                                  <div className="flex items-center justify-center gap-1.5">
-                                    <button onClick={()=>handleEditUser(user)}
-                                      className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 inline-flex items-center justify-center transition" title="แก้ไข">
-                                      <i className="fa-solid fa-pen-to-square text-sm"></i>
-                                    </button>
-                                    {user.username !== currentUser?.username && (
-                                      <button onClick={()=>setConfirmModal({
-                                        title:'ยืนยันการลบผู้ใช้งาน',
-                                        message:`ลบบัญชี "${user.name}" (${user.username}) ออกจากระบบ?`,
-                                        confirmLabel:'ลบ',
-                                        confirmClass:'bg-rose-500 hover:bg-rose-600',
-                                        onConfirm:()=>handleDeleteUser(user.username)
-                                      })} className="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center transition" title="ลบ">
-                                        <i className="fa-solid fa-trash text-sm"></i>
-                                      </button>
-                                    )}
-                                  </div>
+                            {schoolUsers
+                              .filter(u => !userSearch ||
+                                u.name?.toLowerCase().includes(userSearch.toLowerCase()) ||
+                                u.username?.toLowerCase().includes(userSearch.toLowerCase())
+                              )
+                              .map(user => {
+                                const isMe = user.username === currentUser?.username;
+                                const pwVisible = showPwMap[user.username];
+                                const roleStyles = {
+                                  'Super Admin':'bg-purple-100 text-purple-700 border-purple-200',
+                                  'Director':   'bg-indigo-100 text-indigo-700 border-indigo-200',
+                                  'QA Admin':   'bg-amber-100 text-amber-700 border-amber-200',
+                                  'Manager':    'bg-orange-100 text-orange-700 border-orange-200',
+                                  'Teacher':    'bg-emerald-100 text-emerald-700 border-emerald-200',
+                                };
+                                return (
+                                  <tr key={user.username} className={`transition-colors ${isMe?'bg-indigo-50/40':'hover:bg-slate-50'}`}>
+
+                                    {/* ชื่อ */}
+                                    <td className="px-5 py-3.5">
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${isMe?'bg-brand-primary text-white':'bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600'}`}>
+                                          {user.name?.charAt(0)?.toUpperCase()||'?'}
+                                        </div>
+                                        <div>
+                                          <p className="font-semibold text-slate-800 text-sm leading-tight">{user.name}</p>
+                                          {isMe && (
+                                            <span className="text-xs text-brand-primary font-semibold flex items-center gap-1 mt-0.5">
+                                              <i className="fa-solid fa-circle-user text-xs"></i>บัญชีของคุณ
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+
+                                    {/* Username */}
+                                    <td className="px-5 py-3.5">
+                                      <span className="font-mono text-xs bg-slate-100 px-2.5 py-1.5 rounded-lg text-slate-700 border border-slate-200">{user.username}</span>
+                                    </td>
+
+                                    {/* Password */}
+                                    <td className="px-5 py-3.5">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`font-mono text-xs px-2.5 py-1.5 rounded-lg border ${pwVisible?'bg-amber-50 text-amber-800 border-amber-200':'bg-slate-100 text-slate-500 border-slate-200 tracking-widest'}`}>
+                                          {pwVisible ? user.password : '••••••••'}
+                                        </span>
+                                        <button type="button"
+                                          onClick={()=>setShowPwMap(m=>({...m,[user.username]:!m[user.username]}))}
+                                          className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition"
+                                          title={pwVisible?'ซ่อนรหัสผ่าน':'แสดงรหัสผ่าน'}>
+                                          <i className={`fa-solid ${pwVisible?'fa-eye-slash':'fa-eye'} text-xs`}></i>
+                                        </button>
+                                      </div>
+                                    </td>
+
+                                    {/* Role */}
+                                    <td className="px-5 py-3.5">
+                                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${roleStyles[user.role]||'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                        {user.role}
+                                      </span>
+                                    </td>
+
+                                    {/* Actions */}
+                                    <td className="px-5 py-3.5">
+                                      <div className="flex items-center justify-center gap-1.5">
+                                        <button
+                                          onClick={()=>handleEditUser(user)}
+                                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${editingUser===user.username?'bg-amber-500 text-white':'bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white'}`}
+                                          title="แก้ไขข้อมูล">
+                                          <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                          {editingUser===user.username ? 'กำลังแก้...' : 'แก้ไข'}
+                                        </button>
+                                        {!isMe && (
+                                          <button
+                                            onClick={()=>setConfirmModal({
+                                              title:'ยืนยันการลบผู้ใช้งาน',
+                                              message:`ลบบัญชี "${user.name}" (${user.username}) ออกจากระบบถาวร?`,
+                                              confirmLabel:'ลบออก',
+                                              confirmClass:'bg-rose-500 hover:bg-rose-600',
+                                              onConfirm:()=>handleDeleteUser(user.username)
+                                            })}
+                                            className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition"
+                                            title="ลบผู้ใช้งาน">
+                                            <i className="fa-solid fa-trash text-xs"></i>
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            }
+                            {schoolUsers.length === 0 && (
+                              <tr>
+                                <td colSpan="5" className="text-center py-12 text-slate-300">
+                                  <i className="fa-solid fa-users text-5xl mb-3 block opacity-50"></i>
+                                  <p className="text-sm">ยังไม่มีผู้ใช้งาน</p>
+                                  <p className="text-xs mt-1">กดปุ่ม "เพิ่มผู้ใช้งาน" เพื่อเริ่มต้น</p>
                                 </td>
                               </tr>
-                            ))}
-                            {schoolUsers.length === 0 && (
-                              <tr><td colSpan="5" className="text-center py-10 text-slate-300">
-                                <i className="fa-solid fa-users text-4xl mb-2 block"></i>ยังไม่มีผู้ใช้งาน
-                              </td></tr>
                             )}
                           </tbody>
                         </table>
                       </div>
+
+                      {/* Footer */}
+                      {schoolUsers.length > 0 && (
+                        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-400">
+                          <span>แสดง {schoolUsers.filter(u=>!userSearch||u.name?.toLowerCase().includes(userSearch.toLowerCase())||u.username?.toLowerCase().includes(userSearch.toLowerCase())).length} จาก {schoolUsers.length} บัญชี</span>
+                          <span className="flex items-center gap-1"><i className="fa-solid fa-eye text-xs"></i>คลิกไอคอนตาเพื่อดูรหัสผ่าน</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* ── SETTINGS ── */}
+
+
+                                {/* ── SETTINGS ── */}
                 {activeMenu === 'settings' && (
                   <div className="space-y-5 animate-fadeInUp">
                     <div>
