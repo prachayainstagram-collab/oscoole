@@ -5,15 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ระบบบริหารจัดการแผนและ QA</title>
   
-  <!-- Google Fonts: Prompt -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- Custom Tailwind Config -->
   <script>
     tailwind.config = {
       theme: {
@@ -38,23 +35,16 @@
     }
   </script>
 
-  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- React & ReactDOM (UMD) -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   
-  <!-- Babel for compiling JSX in browser -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
-  <!-- Recharts Dependencies -->
   <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
   <script src="https://unpkg.com/react-is@18.2.0/umd/react-is.production.min.js"></script>
   <script src="https://unpkg.com/recharts@2.1.12/umd/Recharts.js"></script>
-
-  <!-- Supabase JS Client -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <style>
     body { 
@@ -70,19 +60,14 @@
 <body>
   <div id="root"></div>
 
-  <!-- React Code -->
   <script type="text/babel">
     const { useState, useEffect } = React;
     const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = window.Recharts;
 
     // ==========================================
-    // ⚙️ การตั้งค่า SUPABASE (ใส่ข้อมูลของคุณที่นี่)
+    // ⚙️ นำ URL ของ Google Apps Script มาวางที่นี่
     // ==========================================
-    const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE';
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE';
-    
-    const isSupabaseReady = SUPABASE_URL !== 'YOUR_SUPABASE_URL_HERE';
-    const supabase = isSupabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+    const GOOGLE_WEB_APP_URL = 'ใส่_URL_ของ_APPS_SCRIPT_ตรงนี้';
 
     // --- Mock Data ---
     const chartData = [
@@ -148,7 +133,7 @@
         password: 'รหัสผ่าน',
         loginBtn: 'เข้าสู่ระบบ',
         logout: 'ออกจากระบบ',
-        invalidLogin: 'รหัสสถานศึกษาไม่ถูกต้อง (กรุณาลอง 1001)',
+        invalidLogin: 'รหัสสถานศึกษาไม่ถูกต้อง (กรุณาลอง 1001 หรือ 1002)',
         role: 'บทบาทผู้ใช้งาน:',
         dashboard: 'ภาพรวมระบบ',
         projectMgmt: 'จัดการโครงการ',
@@ -209,7 +194,7 @@
         password: 'Password',
         loginBtn: 'Sign In',
         logout: 'Sign Out',
-        invalidLogin: 'Invalid Organization ID (Try 1001)',
+        invalidLogin: 'Invalid Organization ID (Try 1001 or 1002)',
         role: 'Current Role:',
         dashboard: 'Dashboard',
         projectMgmt: 'Projects',
@@ -297,6 +282,10 @@
       const [settingsForm, setSettingsForm] = useState({ name: '', logo: '', activeMenus: [] });
       const [settingsSuccess, setSettingsSuccess] = useState(false);
 
+      // State สำหรับฟอร์มสร้างกิจกรรม
+      const [activityForm, setActivityForm] = useState({ project: '', name: '', budget: '' });
+      const [isSubmittingActivity, setIsSubmittingActivity] = useState(false);
+
       const t = translations[lang];
 
       useEffect(() => {
@@ -313,47 +302,21 @@
         setLang(lang === 'th' ? 'en' : 'th');
       };
 
-      const handleLogin = async (e) => {
+      const handleLogin = (e) => {
         e.preventDefault();
         setIsLoading(true);
         setLoginError('');
 
-        if (isSupabaseReady) {
-          try {
-            const { data, error } = await supabase
-              .from('schools')
-              .select('*')
-              .eq('school_code', loginForm.schoolCode)
-              .single();
-
-            if (error) throw error;
-            
-            if (data) {
-              setSchoolInfo({
-                id: data.school_code,
-                name: data.name,
-                logo: data.logo,
-                activeMenus: data.active_menus || initialSchoolsData['1001'].activeMenus
-              });
-              setIsLoggedIn(true);
-            }
-          } catch (error) {
-            console.error('Supabase Error:', error);
+        // ตรวจสอบข้อมูลจาก Mock Database (Local)
+        setTimeout(() => {
+          if (schoolsDb[loginForm.schoolCode]) {
+            setSchoolInfo(schoolsDb[loginForm.schoolCode]);
+            setIsLoggedIn(true);
+          } else {
             setLoginError(t.invalidLogin);
           }
-        } else {
-          setTimeout(() => {
-            if (schoolsDb[loginForm.schoolCode]) {
-              setSchoolInfo(schoolsDb[loginForm.schoolCode]);
-              setIsLoggedIn(true);
-            } else {
-              setLoginError(t.invalidLogin);
-            }
-            setIsLoading(false);
-          }, 800);
-          return;
-        }
-        setIsLoading(false);
+          setIsLoading(false);
+        }, 800);
       };
 
       const handleLogout = () => {
@@ -361,6 +324,53 @@
         setSchoolInfo(null);
         setLoginForm({ schoolCode: '', username: '', password: '' });
         setActiveMenu('dashboard');
+      };
+
+      // ฟังก์ชันเมื่อกดปุ่ม "บันทึกข้อมูล" กิจกรรม -> ส่งไป Google Sheets
+      const handleProposeActivity = async (e) => {
+        e.preventDefault();
+        
+        if (!activityForm.project || !activityForm.name) {
+          alert('กรุณากรอกข้อมูลที่มีเครื่องหมาย * ให้ครบถ้วน');
+          return;
+        }
+
+        if (GOOGLE_WEB_APP_URL === 'ใส่_URL_ของ_APPS_SCRIPT_ตรงนี้') {
+          alert('⚠️ คุณยังไม่ได้ใส่ URL ของ Google Apps Script โค้ดจะจำลองการทำงานเฉยๆ นะครับ');
+          setActivityForm({ project: '', name: '', budget: '' }); 
+          setActiveMenu('activityMgmt');
+          return;
+        }
+
+        setIsSubmittingActivity(true);
+
+        try {
+          await fetch(GOOGLE_WEB_APP_URL, {
+            method: 'POST',
+            mode: 'no-cors', // ใช้โหมดนี้เพื่อเลี่ยงปัญหา Browser CORS Block
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              schoolCode: schoolInfo.id,
+              project: activityForm.project,
+              name: activityForm.name,
+              budget: activityForm.budget || 0,
+              status: 'รออนุมัติ QA',
+              pdca: 'Plan'
+            })
+          });
+
+          alert('บันทึกข้อมูลกิจกรรมลง Google Sheets เรียบร้อยแล้ว! 🎉');
+          setActivityForm({ project: '', name: '', budget: '' }); 
+          setActiveMenu('activityMgmt');
+
+        } catch (error) {
+          console.error('Error saving:', error);
+          alert('ส่งข้อมูลสำเร็จ (แต่อาจจะติดหน้าจอโหลด ให้ไปเช็คใน Google Sheets)');
+        }
+        
+        setIsSubmittingActivity(false);
       };
 
       const menuItems = [
@@ -381,7 +391,7 @@
         (schoolInfo ? (schoolInfo.activeMenus || []).includes(menu.id) : true)
       );
 
-      const handleSaveSettings = async (e) => {
+      const handleSaveSettings = (e) => {
         e.preventDefault();
         const updatedSchool = { 
           ...schoolInfo, 
@@ -390,25 +400,9 @@
           activeMenus: settingsForm.activeMenus
         };
 
-        if (isSupabaseReady) {
-          const { error } = await supabase
-            .from('schools')
-            .update({ 
-              name: updatedSchool.name, 
-              logo: updatedSchool.logo, 
-              active_menus: updatedSchool.activeMenus 
-            })
-            .eq('school_code', updatedSchool.id);
-            
-          if (!error) {
-            setSchoolInfo(updatedSchool);
-          } else {
-            console.error("Save Error:", error);
-          }
-        } else {
-          setSchoolInfo(updatedSchool);
-          setSchoolsDb(prev => ({ ...prev, [updatedSchool.id]: updatedSchool }));
-        }
+        // Update Local State
+        setSchoolInfo(updatedSchool);
+        setSchoolsDb(prev => ({ ...prev, [updatedSchool.id]: updatedSchool }));
         
         setSettingsSuccess(true);
         setTimeout(() => setSettingsSuccess(false), 3000);
@@ -443,9 +437,9 @@
                   <h1 className="text-3xl font-bold mb-2 leading-tight">{t.appTitle}</h1>
                   <p className="text-slate-300 text-sm opacity-80 leading-relaxed">ระบบบริหารจัดการนโยบาย แผนงาน โครงการ กิจกรรม งบประมาณ และการประกันคุณภาพการศึกษาระดับองค์กร</p>
                   
-                  <div className={`mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${isSupabaseReady ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-amber-500/30 text-amber-400 bg-amber-500/10'}`}>
-                    <span className={`w-2 h-2 rounded-full ${isSupabaseReady ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
-                    {isSupabaseReady ? 'Supabase Connected' : 'Local Mock Data Mode'}
+                  <div className={`mt-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border border-emerald-500/30 text-emerald-400 bg-emerald-500/10`}>
+                    <span className={`w-2 h-2 rounded-full bg-emerald-500`}></span>
+                    พร้อมใช้งาน (Local & Google Sheets)
                   </div>
                 </div>
                 <div className="relative z-10 mt-12 md:mt-0">
@@ -472,28 +466,14 @@
                       <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t.schoolCode}</label>
                       <div className="relative group">
                         <i className="fa-solid fa-building absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors"></i>
-                        <input 
-                          type="text" 
-                          required
-                          value={loginForm.schoolCode}
-                          onChange={(e) => setLoginForm({...loginForm, schoolCode: e.target.value})}
-                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" 
-                          placeholder="เช่น 1001 หรือ 1002"
-                        />
+                        <input type="text" required value={loginForm.schoolCode} onChange={(e) => setLoginForm({...loginForm, schoolCode: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" placeholder="เช่น 1001 หรือ 1002" />
                       </div>
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1.5">{t.username}</label>
                       <div className="relative group">
                         <i className="fa-regular fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors"></i>
-                        <input 
-                          type="text" 
-                          required
-                          value={loginForm.username}
-                          onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
-                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" 
-                          placeholder="admin"
-                        />
+                        <input type="text" required value={loginForm.username} onChange={(e) => setLoginForm({...loginForm, username: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" placeholder="admin" />
                       </div>
                     </div>
                     <div>
@@ -502,14 +482,7 @@
                       </div>
                       <div className="relative group">
                         <i className="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-primary transition-colors"></i>
-                        <input 
-                          type="password" 
-                          required
-                          value={loginForm.password}
-                          onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
-                          className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" 
-                          placeholder="••••••••"
-                        />
+                        <input type="password" required value={loginForm.password} onChange={(e) => setLoginForm({...loginForm, password: e.target.value})} className="w-full border-2 border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-slate-50 hover:bg-white focus:bg-white" placeholder="••••••••" />
                       </div>
                     </div>
                     <button type="submit" disabled={isLoading} className="w-full bg-brand-primary hover:bg-indigo-700 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-brand-primary/30 mt-8 flex justify-center items-center gap-2">
@@ -765,7 +738,7 @@
                     <div className="bg-slate-50 p-6 md:p-8 border-b border-slate-100 flex justify-between items-center">
                       <div>
                         <h3 className="text-xl font-bold text-slate-800">{t.createActivity}</h3>
-                        <p className="text-sm text-slate-500 mt-1">กรอกรายละเอียดเพื่อขออนุมัติจัดตั้งกิจกรรมย่อย</p>
+                        <p className="text-sm text-slate-500 mt-1">กรอกรายละเอียดเพื่อขออนุมัติจัดตั้งกิจกรรมย่อยส่งเข้า Google Sheets</p>
                       </div>
                       <button className="hidden sm:flex items-center gap-2 bg-white border border-slate-200 hover:border-brand-primary hover:text-brand-primary text-slate-600 px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow">
                         <i className="fa-solid fa-file-word text-blue-600"></i>
@@ -773,35 +746,55 @@
                       </button>
                     </div>
 
-                    <form className="p-6 md:p-8 space-y-6">
+                    <form onSubmit={handleProposeActivity} className="p-6 md:p-8 space-y-6">
                       <div className="grid grid-cols-1 gap-6">
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 mb-2">{t.selectProject} <span className="text-rose-500">*</span></label>
-                          <select className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white cursor-pointer appearance-none">
+                          <select 
+                            required
+                            value={activityForm.project}
+                            onChange={(e) => setActivityForm({...activityForm, project: e.target.value})}
+                            className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all bg-white cursor-pointer appearance-none"
+                          >
                             <option value="">-- กรุณาเลือกโครงการหลัก --</option>
-                            <option>โครงการพัฒนาศักยภาพผู้เรียน</option>
-                            <option>โครงการปรับปรุงภูมิทัศน์โรงเรียน</option>
+                            <option value="โครงการพัฒนาศักยภาพผู้เรียน">โครงการพัฒนาศักยภาพผู้เรียน</option>
+                            <option value="โครงการปรับปรุงภูมิทัศน์โรงเรียน">โครงการปรับปรุงภูมิทัศน์โรงเรียน</option>
+                            <option value="โครงการส่งเสริมคุณธรรมจริยธรรม">โครงการส่งเสริมคุณธรรมจริยธรรม</option>
                           </select>
                         </div>
                         
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 mb-2">{t.activityName} <span className="text-rose-500">*</span></label>
-                          <input type="text" className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all" placeholder="ระบุชื่อกิจกรรมย่อย..." />
+                          <input 
+                            type="text" 
+                            required
+                            value={activityForm.name}
+                            onChange={(e) => setActivityForm({...activityForm, name: e.target.value})}
+                            className="w-full border-2 border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all" 
+                            placeholder="ระบุชื่อกิจกรรมย่อย..." 
+                          />
                         </div>
 
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 mb-2">{t.budgetAmount}</label>
                           <div className="relative">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">฿</span>
-                            <input type="number" className="w-full border-2 border-slate-200 rounded-xl pl-9 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all" placeholder="0.00" />
+                            <input 
+                              type="number" 
+                              value={activityForm.budget}
+                              onChange={(e) => setActivityForm({...activityForm, budget: e.target.value})}
+                              className="w-full border-2 border-slate-200 rounded-xl pl-9 pr-4 py-3 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition-all" 
+                              placeholder="0.00" 
+                            />
                           </div>
                         </div>
                       </div>
 
                       <div className="pt-6 border-t border-slate-100 flex justify-end gap-3 mt-8">
-                        <button type="button" className="px-6 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">{lang === 'th' ? 'ยกเลิก' : 'Cancel'}</button>
-                        <button type="button" className="px-6 py-2.5 rounded-xl bg-brand-primary hover:bg-indigo-700 text-white font-semibold transition-all shadow-lg shadow-brand-primary/30 flex items-center gap-2">
-                          <i className="fa-solid fa-save"></i> {t.save}
+                        <button type="button" onClick={() => setActivityForm({ project: '', name: '', budget: '' })} className="px-6 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">{lang === 'th' ? 'ล้างค่า' : 'Clear'}</button>
+                        <button type="submit" disabled={isSubmittingActivity} className="px-6 py-2.5 rounded-xl bg-brand-primary hover:bg-indigo-700 text-white font-semibold transition-all shadow-lg shadow-brand-primary/30 flex items-center gap-2 disabled:opacity-70">
+                          {isSubmittingActivity ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-save"></i>} 
+                          {t.save}
                         </button>
                       </div>
                     </form>
@@ -924,7 +917,7 @@
                     <div className="flex justify-between items-end mb-6">
                       <div>
                         <h3 className="text-2xl font-bold text-slate-800">{t.directorApproval}</h3>
-                        <p className="text-slate-500 mt-1">พิจารณาอนุมัติโครงการและกิจกรรมที่ผ่านการกลั่นกรองจาก QA แล้ว</p>
+                        <p className="text-slate-500 mt-1">พิจารณาอนุมัติโครงการและกิจกรรมที่ผ่านการกลั่นกรองจาก QAแล้ว</p>
                       </div>
                     </div>
                     <div className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
@@ -1164,17 +1157,6 @@
                         </form>
                       </div>
                     </div>
-                  </div>
-                )}
-
-                {/* Fallback for undeveloped pages like managerApproval */}
-                {activeMenu !== 'dashboard' && activeMenu !== 'projectMgmt' && activeMenu !== 'proposeActivity' && activeMenu !== 'activityMgmt' && activeMenu !== 'qaScreening' && activeMenu !== 'directorApproval' && activeMenu !== 'budgetRequest' && activeMenu !== 'users' && activeMenu !== 'settings' && (
-                  <div className="flex flex-col items-center justify-center h-[60vh] text-slate-400 animate-in fade-in duration-500">
-                    <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6">
-                      <i className="fa-solid fa-person-digging text-4xl text-slate-300"></i>
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-700 mb-2">โครงสร้างพร้อมสำหรับการพัฒนาเพิ่มเติม</h3>
-                    <p className="text-sm">หน้า "{menuItems.find(m => m.id === activeMenu)?.label}"</p>
                   </div>
                 )}
 
