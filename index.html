@@ -68,6 +68,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
+
     const { useState, useEffect, useCallback, useRef } = React;
     const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = window.Recharts;
 
@@ -113,7 +114,7 @@
           { username:'teacher01',  password:'1234', name:'สมชาย รักเรียน', role:'Teacher'    },
           { username:'manager01',  password:'1234', name:'วิชัย คุมเงิน',  role:'Manager'    },
         ],
-        activeMenus:['dashboard','proposeActivity','projectMgmt','activityMgmt','budgetRequest','qaScreening','directorApproval','managerApproval','users','settings'],
+        activeMenus:['dashboard','proposeActivity','projectMgmt','activityMgmt','budgetRequest','qaScreening','directorApproval','managerApproval','activityEval','projectReport','users','settings'],
       },
       '1002': {
         id:'1002', name:'โรงเรียนมัธยมตัวอย่างที่ 2', logo:'', province:'เชียงใหม่', status:'active',
@@ -134,6 +135,8 @@
       { id:'qaScreening',      icon:'fa-solid fa-clipboard-check',     label:'การกลั่นกรอง (QA)',       roles:['Super Admin','QA Admin'] },
       { id:'directorApproval', icon:'fa-solid fa-file-signature',      label:'อนุมัติโครงการ',          roles:['Super Admin','Director'] },
       { id:'managerApproval',  icon:'fa-solid fa-file-invoice-dollar', label:'อนุมัติงบประมาณ',         roles:['Super Admin','Manager'] },
+      { id:'activityEval',     icon:'fa-solid fa-star-half-stroke',    label:'ประเมินผลกิจกรรม',        roles:['Super Admin','Teacher','Director'] },
+      { id:'projectReport',    icon:'fa-solid fa-file-chart-column',   label:'รายงานผลโครงการ',         roles:['Super Admin','Director','QA Admin'] },
       { id:'users',            icon:'fa-solid fa-users',               label:'จัดการผู้ใช้งาน',         roles:['Super Admin'] },
       { id:'settings',         icon:'fa-solid fa-gear',                label:'ตั้งค่าระบบ',             roles:['Super Admin'] },
     ];
@@ -502,8 +505,281 @@
     }
 
     // ==========================================
-    // 🎯 MAIN APP
-    // ==========================================
+    // ⭐ Activity Evaluation Modal
+
+    function EvalModal({ act, onSave, onClose }) {
+      const [form, setForm] = React.useState({
+        successPct: act.successPct || 0,
+        qualityScore: act.qualityScore || 3,
+        note: act.evalNote || '',
+      });
+      const qualityLabels = ['','ต้องปรับปรุง','พอใช้','ดี','ดีมาก','ดีเยี่ยม'];
+      const qualityColors = ['','bg-rose-500','bg-orange-500','bg-amber-500','bg-emerald-500','bg-emerald-600'];
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-fadeInUp overflow-hidden" onClick={e=>e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-5 text-white">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <i className="fa-solid fa-star-half-stroke text-emerald-200"></i>
+                    <span className="text-emerald-100 text-xs font-semibold uppercase tracking-wider">ประเมินผลกิจกรรม</span>
+                  </div>
+                  <h3 className="font-bold text-base leading-tight">{act.name}</h3>
+                  <p className="text-emerald-200 text-xs mt-1">{act.project}</p>
+                </div>
+                <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center shrink-0">
+                  <i className="fa-solid fa-xmark text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* ── ร้อยละความสำเร็จ ── */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    <i className="fa-solid fa-percent text-emerald-500"></i>
+                    ร้อยละความสำเร็จ
+                  </label>
+                  <span className={`text-2xl font-black ${form.successPct>=80?'text-emerald-600':form.successPct>=60?'text-amber-500':'text-rose-500'}`}>
+                    {form.successPct}%
+                  </span>
+                </div>
+                <input type="range" min="0" max="100" step="5" value={form.successPct}
+                  onChange={e=>setForm({...form,successPct:Number(e.target.value)})}
+                  className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                  style={{background:`linear-gradient(to right,${form.successPct>=80?'#10b981':form.successPct>=60?'#f59e0b':'#ef4444'} ${form.successPct}%,#e2e8f0 ${form.successPct}%)`}} />
+                <div className="flex justify-between text-xs text-slate-400 mt-1.5">
+                  <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+                </div>
+                {/* Progress label */}
+                <div className={`mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 ${form.successPct>=80?'bg-emerald-50 text-emerald-700':form.successPct>=60?'bg-amber-50 text-amber-700':form.successPct>=40?'bg-orange-50 text-orange-700':'bg-rose-50 text-rose-700'}`}>
+                  <i className={`fa-solid ${form.successPct>=80?'fa-circle-check':form.successPct>=60?'fa-circle-half-stroke':'fa-circle-xmark'} text-xs`}></i>
+                  {form.successPct>=80?'บรรลุเป้าหมาย':form.successPct>=60?'ค่อนข้างสำเร็จ':form.successPct>=40?'ต้องปรับปรุง':'ไม่บรรลุเป้าหมาย'}
+                </div>
+              </div>
+
+              {/* ── คะแนนคุณภาพ 1–5 ── */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                    <i className="fa-solid fa-star text-amber-400"></i>
+                    คะแนนคุณภาพ
+                  </label>
+                  <span className={`text-sm font-bold px-3 py-1 rounded-full text-white ${qualityColors[form.qualityScore]||'bg-slate-400'}`}>
+                    {form.qualityScore}/5 — {qualityLabels[form.qualityScore]}
+                  </span>
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {[1,2,3,4,5].map(score => (
+                    <button key={score} type="button" onClick={()=>setForm({...form,qualityScore:score})}
+                      className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 transition-all ${form.qualityScore===score?'border-brand-primary bg-indigo-50 scale-105':'border-slate-200 hover:border-slate-300'}`}>
+                      <div className="flex gap-0.5">
+                        {[...Array(score)].map((_,i)=>(
+                          <i key={i} className={`fa-solid fa-star text-xs ${score>=4?'text-amber-400':score===3?'text-amber-400':'text-slate-300'} ${form.qualityScore===score?'text-amber-400':''}`}></i>
+                        ))}
+                      </div>
+                      <span className={`text-lg font-black leading-none ${form.qualityScore===score?'text-brand-primary':'text-slate-400'}`}>{score}</span>
+                      <span className="text-xs text-slate-400 text-center leading-tight">{qualityLabels[score]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── หมายเหตุ ── */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                  <i className="fa-solid fa-note-sticky text-slate-400"></i>
+                  บันทึกเพิ่มเติม / สรุปผล
+                </label>
+                <textarea rows={2} value={form.note}
+                  onChange={e=>setForm({...form,note:e.target.value})}
+                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 transition resize-none"
+                  placeholder="สรุปผลการดำเนินกิจกรรม ปัญหา/อุปสรรค ข้อเสนอแนะ..." />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-sm transition">ยกเลิก</button>
+                <button onClick={()=>onSave(act.id, form)}
+                  className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition shadow-lg shadow-emerald-500/30 flex items-center gap-2">
+                  <i className="fa-solid fa-floppy-disk"></i> บันทึกผลการประเมิน
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+
+    function ProjectReportModal({ project, result, onClose }) {
+      const qualityLabels = ['','ต้องปรับปรุง','พอใช้','ดี','ดีมาก','ดีเยี่ยม'];
+      const scoreColor = (s) => s>=4.5?'text-emerald-600':s>=3.5?'text-emerald-500':s>=2.5?'text-amber-500':s>=1.5?'text-orange-500':'text-rose-500';
+      const scoreBg = (s) => s>=4.5?'bg-emerald-50 border-emerald-200':s>=3.5?'bg-emerald-50 border-emerald-200':s>=2.5?'bg-amber-50 border-amber-200':s>=1.5?'bg-orange-50 border-orange-200':'bg-rose-50 border-rose-200';
+      const rounded1 = (n) => Math.round(n*10)/10;
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-4 animate-fadeInUp overflow-hidden" onClick={e=>e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-brand-primary to-indigo-700 p-6 text-white">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <i className="fa-solid fa-file-chart-column text-indigo-200 text-sm"></i>
+                    <span className="text-indigo-200 text-xs font-semibold uppercase tracking-wider">รายงานผลโครงการ</span>
+                  </div>
+                  <h3 className="font-bold text-lg leading-tight">{project.name}</h3>
+                  <p className="text-indigo-200 text-xs mt-1">{project.code} • ปีการศึกษา 2567</p>
+                </div>
+                <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center shrink-0">
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              {/* Summary chips */}
+              <div className="flex flex-wrap gap-2 mt-4">
+                <div className="bg-white/15 rounded-xl px-3 py-2 text-center">
+                  <p className="text-2xl font-black">{result.count}</p>
+                  <p className="text-indigo-200 text-xs">กิจกรรมประเมินแล้ว</p>
+                </div>
+                <div className="bg-white/15 rounded-xl px-3 py-2 text-center">
+                  <p className="text-2xl font-black">{result.total - result.count}</p>
+                  <p className="text-indigo-200 text-xs">ยังไม่ประเมิน</p>
+                </div>
+                <div className="bg-white/15 rounded-xl px-3 py-2 text-center">
+                  <p className="text-2xl font-black">{result.avgSuccess}%</p>
+                  <p className="text-indigo-200 text-xs">ค่าเฉลี่ยความสำเร็จ</p>
+                </div>
+                <div className="bg-white/15 rounded-xl px-3 py-2 text-center">
+                  <p className="text-2xl font-black">{result.avgQuality}</p>
+                  <p className="text-indigo-200 text-xs">คะแนนเฉลี่ยคุณภาพ</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* ── โดยรวมของโครงการ ── */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* ความสำเร็จ */}
+                <div className={`rounded-2xl border-2 p-4 ${result.avgSuccess>=80?'bg-emerald-50 border-emerald-200':result.avgSuccess>=60?'bg-amber-50 border-amber-200':'bg-rose-50 border-rose-200'}`}>
+                  <p className="text-xs font-semibold text-slate-500 mb-1">ร้อยละความสำเร็จเฉลี่ย</p>
+                  <p className={`text-4xl font-black ${result.avgSuccess>=80?'text-emerald-600':result.avgSuccess>=60?'text-amber-500':'text-rose-500'}`}>
+                    {result.avgSuccess}<span className="text-xl">%</span>
+                  </p>
+                  <div className="mt-2 bg-white/60 rounded-full h-2.5 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${result.avgSuccess>=80?'bg-emerald-500':result.avgSuccess>=60?'bg-amber-500':'bg-rose-500'}`}
+                      style={{width:`${result.avgSuccess}%`}}></div>
+                  </div>
+                  <p className={`text-xs font-bold mt-1.5 ${result.avgSuccess>=80?'text-emerald-600':result.avgSuccess>=60?'text-amber-600':'text-rose-600'}`}>
+                    {result.avgSuccess>=80?'✅ บรรลุเป้าหมาย':result.avgSuccess>=60?'⚠️ ต้องปรับปรุง':'❌ ไม่บรรลุเป้าหมาย'}
+                  </p>
+                </div>
+                {/* คุณภาพ */}
+                <div className={`rounded-2xl border-2 p-4 ${scoreBg(result.avgQuality)}`}>
+                  <p className="text-xs font-semibold text-slate-500 mb-1">คะแนนคุณภาพเฉลี่ย</p>
+                  <div className="flex items-end gap-2">
+                    <p className={`text-4xl font-black ${scoreColor(result.avgQuality)}`}>
+                      {result.avgQuality}
+                    </p>
+                    <p className="text-slate-400 text-sm mb-1.5">/ 5</p>
+                  </div>
+                  <div className="flex gap-0.5 mt-1">
+                    {[1,2,3,4,5].map(i=>(
+                      <i key={i} className={`fa-solid fa-star text-sm ${i<=Math.round(result.avgQuality)?'text-amber-400':'text-slate-200'}`}></i>
+                    ))}
+                  </div>
+                  <p className={`text-xs font-bold mt-1.5 ${scoreColor(result.avgQuality)}`}>
+                    {qualityLabels[Math.round(result.avgQuality)] || '-'}
+                  </p>
+                </div>
+              </div>
+
+              {/* ── ตารางกิจกรรมที่ประเมินแล้ว ── */}
+              {result.count > 0 && (
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                    <i className="fa-solid fa-list-check text-brand-primary"></i>
+                    ผลการประเมินแต่ละกิจกรรม
+                  </h4>
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left font-semibold">กิจกรรม</th>
+                          <th className="px-4 py-3 text-center font-semibold">% สำเร็จ</th>
+                          <th className="px-4 py-3 text-center font-semibold">คะแนน</th>
+                          <th className="px-4 py-3 text-left font-semibold">บันทึก</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {result.acts.map(a => (
+                          <tr key={a.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-3">
+                              <p className="font-semibold text-slate-800 text-xs leading-tight">{a.name}</p>
+                              <p className="text-slate-400 text-xs mt-0.5">{a.evalDate||'-'}</p>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`text-sm font-black ${Number(a.successPct)>=80?'text-emerald-600':Number(a.successPct)>=60?'text-amber-500':'text-rose-500'}`}>
+                                {a.successPct||0}%
+                              </span>
+                              <div className="w-12 bg-slate-100 rounded-full h-1.5 mx-auto mt-1 overflow-hidden">
+                                <div className={`h-full rounded-full ${Number(a.successPct)>=80?'bg-emerald-500':Number(a.successPct)>=60?'bg-amber-500':'bg-rose-500'}`}
+                                  style={{width:`${a.successPct||0}%`}}></div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex items-center justify-center gap-0.5">
+                                {[1,2,3,4,5].map(i=>(
+                                  <i key={i} className={`fa-solid fa-star text-xs ${i<=(a.qualityScore||0)?'text-amber-400':'text-slate-200'}`}></i>
+                                ))}
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5">{a.qualityScore||'-'}/5</p>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-slate-500 max-w-32 truncate">
+                              {a.evalNote||'-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      {/* Row รวม */}
+                      <tfoot>
+                        <tr className="bg-indigo-50 font-bold">
+                          <td className="px-4 py-3 text-xs text-brand-primary font-bold">ค่าเฉลี่ยรวม</td>
+                          <td className="px-4 py-3 text-center text-sm font-black text-brand-primary">{result.avgSuccess}%</td>
+                          <td className="px-4 py-3 text-center text-sm font-black text-brand-primary">{result.avgQuality}/5</td>
+                          <td className="px-4 py-3 text-xs text-indigo-400">{result.count} กิจกรรม</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {result.count === 0 && (
+                <div className="text-center py-8 text-slate-300">
+                  <i className="fa-solid fa-clipboard-list text-4xl mb-2 block opacity-50"></i>
+                  <p className="text-sm">ยังไม่มีกิจกรรมที่ประเมินผลแล้ว</p>
+                  <p className="text-xs mt-1 opacity-70">ไปที่หน้า "ประเมินผลกิจกรรม" เพื่อเริ่มประเมิน</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button onClick={()=>window.print()} className="flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold text-sm transition">
+                  <i className="fa-solid fa-print"></i> พิมพ์รายงาน
+                </button>
+                <button onClick={onClose} className="flex-1 py-2.5 rounded-xl bg-brand-primary hover:bg-indigo-700 text-white font-bold text-sm transition shadow-lg flex items-center justify-center gap-2">
+                  <i className="fa-solid fa-check"></i> ปิด
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+
     function App() {
       const [lang, setLang] = useState('th');
       const [role, setRole] = useState('Super Admin');
@@ -561,8 +837,14 @@
       // ── PDCA modal ────────────────────────────────────────
       const [pdcaModal, setPdcaModal] = useState(null);         // activity object
 
+      // ── Activity Evaluation ───────────────────────────────
+      const [evalModal, setEvalModal]   = useState(null);       // activity กำลังประเมิน
+      const [reportModal, setReportModal] = useState(null);     // project กำลังดูรายงาน
+
       // ── SA School edit ────────────────────────────────────
       const [saEditSchool, setSaEditSchool] = useState(null);   // school object กำลังแก้ไข menus
+
+
 
       // Activity Form
       const [activityForm, setActivityForm] = useState({ project:'', name:'', budget:'', description:'' });
@@ -859,6 +1141,9 @@
       };
 
       // ----------------------------------------
+      // ── Activity Evaluation ───────────────────────────────
+      // คำนวณผลเฉลี่ยของโครงการจากกิจกรรมที่ประเมินแล้ว
+
       // ── Activity Edit ──────────────────────────────────────
       const handleSaveEditActivity = async (updated) => {
         setActivities(prev => prev.map(a => a.id === updated.id ? {...a, ...updated} : a));
@@ -875,6 +1160,10 @@
         await postToSheets({ action:'updatePdca', id, pdca });
         showToast(`อัปเดต PDCA เป็น "${pdca}" แล้ว ✅`);
       };
+
+      // ── Evaluation Save ────────────────────────────────────
+      // ── Project Report Logic ─────────────────────────────────
+      // คำนวณค่าเฉลี่ยของกิจกรรมในโครงการ → เป็นผลลัพธ์โครงการ
 
       // ── Project CRUD ────────────────────────────────────────
       const handleAddProject = (e) => {
@@ -909,6 +1198,29 @@
       const handleSaSaveSchoolMenus = (schoolId) => {
         setSaEditSchool(null);
         showToast('บันทึกเมนูสถานศึกษาแล้ว ✅');
+      };
+
+      // ── Evaluation handlers ─────────────────────────────────
+      const handleSaveEval = async (actId, evalData) => {
+        // evalData = { successRate: number, qualityScore: number, evalNote: string }
+        setActivities(prev => prev.map(a =>
+          a.id === actId ? { ...a, ...evalData, status: 'เสร็จสิ้น', pdca: 'Act' } : a
+        ));
+        setEvalModal(null);
+        showToast('บันทึกผลการประเมินกิจกรรมแล้ว ✅');
+        await postToSheets({ action: 'updateEval', id: actId, ...evalData });
+      };
+
+      // คำนวณผลรวมของโครงการจากกิจกรรมที่ประเมินแล้ว
+      const calcProjectResult = (projectName) => {
+        const done = activities.filter(a =>
+          a.project === projectName &&
+          a.successRate !== undefined && a.successRate !== null && a.successRate !== ''
+        );
+        if (done.length === 0) return null;
+        const avgSuccess = done.reduce((s,a) => s + Number(a.successRate||0), 0) / done.length;
+        const avgQuality = done.reduce((s,a) => s + Number(a.qualityScore||0), 0) / done.length;
+        return { count: done.length, avgSuccess: Math.round(avgSuccess*10)/10, avgQuality: Math.round(avgQuality*10)/10, activities: done };
       };
 
       // ── User Management (ภายในโรงเรียน) ─────────────────────
@@ -1424,6 +1736,37 @@
           {showNotif && (
             <div className="fixed inset-0 z-40" onClick={()=>setShowNotif(false)}></div>
           )}
+          {evalModal && (
+            <EvalModal
+              act={evalModal}
+              onSave={handleSaveEval}
+              onClose={()=>setEvalModal(null)}
+            />
+          )}
+          {reportModal && (() => {
+            const result = calcProjectResult(reportModal.name);
+            return (
+              <ProjectReportModal
+                project={reportModal}
+                result={result}
+                onClose={()=>setReportModal(null)}
+              />
+            );
+          })()}
+          {evalModal && (
+            <EvalModal
+              act={evalModal}
+              onSave={handleSaveEval}
+              onClose={() => setEvalModal(null)}
+            />
+          )}
+          {reportModal && (
+            <ProjectReportModal
+              project={reportModal}
+              activities={activities}
+              onClose={() => setReportModal(null)}
+            />
+          )}
 
           {/* ─── MOBILE SIDEBAR OVERLAY ─── */}
           {sidebarOpen && (
@@ -1680,7 +2023,7 @@
                               <th className="px-6 py-3.5 font-semibold text-right">งบประมาณ</th>
                               <th className="px-6 py-3.5 font-semibold">ความคืบหน้า</th>
                               <th className="px-6 py-3.5 font-semibold text-center">สถานะ</th>
-                              <th className="px-6 py-3.5 font-semibold text-center">จัดการ</th>
+                              <th className="px-6 py-3.5 font-semibold text-center">ผลประเมิน / รายงาน</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 text-sm">
@@ -1703,9 +2046,28 @@
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 text-center">
-                                  <button className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 inline-flex items-center justify-center transition">
-                                    <i className="fa-solid fa-sliders text-sm"></i>
-                                  </button>
+                                  {(() => {
+                                    const res = calcProjectResult(proj.name);
+                                    return res ? (
+                                      <div className="flex items-center justify-center gap-1.5">
+                                        <div className="text-right">
+                                          <p className={`text-xs font-bold ${res.avgSuccess>=80?'text-emerald-600':res.avgSuccess>=60?'text-amber-600':'text-rose-600'}`}>{res.avgSuccess}%</p>
+                                          <div className="flex gap-0.5 justify-end">
+                                            {[1,2,3,4,5].map(s=><i key={s} className={`fa-solid fa-star text-xs ${res.avgQuality>=s?'text-amber-400':'text-slate-200'}`}></i>)}
+                                          </div>
+                                        </div>
+                                        <button onClick={()=>setReportModal(proj)}
+                                          className="w-8 h-8 rounded-lg text-white bg-brand-primary hover:bg-indigo-700 inline-flex items-center justify-center transition shadow-sm" title="ดูรายงานผลโครงการ">
+                                          <i className="fa-solid fa-chart-bar text-xs"></i>
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button onClick={()=>setReportModal(proj)}
+                                        className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 inline-flex items-center justify-center transition" title="ดูรายงาน">
+                                        <i className="fa-solid fa-chart-bar text-sm"></i>
+                                      </button>
+                                    );
+                                  })()}
                                 </td>
                               </tr>
                             ))}
@@ -1822,6 +2184,7 @@
                               <th className="px-5 py-3.5 font-semibold text-right">งบประมาณ</th>
                               <th className="px-5 py-3.5 font-semibold text-center">สถานะ</th>
                               <th className="px-5 py-3.5 font-semibold text-center">PDCA</th>
+                              <th className="px-5 py-3.5 font-semibold text-center">ผลประเมิน</th>
                               <th className="px-5 py-3.5 font-semibold text-center">จัดการ</th>
                             </tr>
                           </thead>
@@ -1849,6 +2212,22 @@
                                   <span className="bg-slate-800 text-white px-2 py-1 rounded-lg text-xs font-bold">{act.pdca||'Plan'}</span>
                                 </td>
                                 <td className="px-5 py-4 text-center">
+                                  {act.successRate!==undefined && act.successRate!=='' ? (
+                                    <div className="flex flex-col items-center gap-1">
+                                      <span className={`text-xs font-bold ${Number(act.successRate)>=80?'text-emerald-600':Number(act.successRate)>=60?'text-amber-600':'text-rose-600'}`}>
+                                        {act.successRate}%
+                                      </span>
+                                      <div className="flex gap-0.5">
+                                        {[1,2,3,4,5].map(s=>(
+                                          <i key={s} className={`fa-solid fa-star text-xs ${Number(act.qualityScore)>=s?'text-amber-400':'text-slate-200'}`}></i>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-300 text-xs">—</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-4 text-center">
                                   <div className="flex items-center justify-center gap-1">
                                     <button onClick={()=>setSelectedAct(act)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 inline-flex items-center justify-center transition" title="ดูรายละเอียด">
                                       <i className="fa-solid fa-eye text-sm"></i>
@@ -1859,6 +2238,13 @@
                                     <button onClick={()=>setPdcaModal(act)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-purple-500 hover:bg-purple-50 inline-flex items-center justify-center transition" title="อัปเดต PDCA">
                                       <i className="fa-solid fa-rotate text-sm"></i>
                                     </button>
+                                    {(act.status==='เสร็จสิ้น'||act.status==='กำลังดำเนินการ') && (
+                                      <button onClick={()=>setEvalModal(act)}
+                                        className={`w-8 h-8 rounded-lg inline-flex items-center justify-center transition ${act.successRate!==undefined&&act.successRate!==''?'text-emerald-500 bg-emerald-50 hover:bg-emerald-100':'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`}
+                                        title={act.successRate!==undefined&&act.successRate!==''?'แก้ไขผลประเมิน':'ประเมินผล'}>
+                                        <i className="fa-solid fa-star text-sm"></i>
+                                      </button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -2682,6 +3068,232 @@
                   </div>
                 )}
 
+              {/* ── PROJECT REPORT PAGE ── */}
+                {activeMenu === 'projectReport' && (
+                  <div className="space-y-6 animate-fadeInUp">
+
+                    {/* Header */}
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-800">รายงานผลโครงการ</h3>
+                      <p className="text-slate-400 text-sm mt-0.5">สรุปผลการประเมินกิจกรรมและความสำเร็จของโครงการ</p>
+                    </div>
+
+                    {/* Summary Stats */}
+                    {(() => {
+                      const allEval = activities.filter(a => a.successRate !== undefined && a.successRate !== '' && a.successRate !== null);
+                      const totalActs = activities.length;
+                      const avgSR = allEval.length > 0 ? Math.round(allEval.reduce((s,a)=>s+Number(a.successRate||0),0)/allEval.length*10)/10 : null;
+                      const avgQS = allEval.length > 0 ? Math.round(allEval.reduce((s,a)=>s+Number(a.qualityScore||0),0)/allEval.length*10)/10 : null;
+                      return (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="bg-white rounded-2xl p-5 shadow-soft border border-slate-100">
+                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">กิจกรรมทั้งหมด</p>
+                            <p className="text-3xl font-bold text-slate-800">{totalActs}</p>
+                            <p className="text-xs text-slate-400 mt-1">รายการ</p>
+                          </div>
+                          <div className="bg-white rounded-2xl p-5 shadow-soft border border-slate-100">
+                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">ประเมินแล้ว</p>
+                            <p className="text-3xl font-bold text-brand-primary">{allEval.length}</p>
+                            <p className="text-xs text-slate-400 mt-1">จาก {totalActs} กิจกรรม</p>
+                          </div>
+                          <div className="bg-white rounded-2xl p-5 shadow-soft border border-emerald-100">
+                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">ร้อยละความสำเร็จเฉลี่ย</p>
+                            <p className={`text-3xl font-bold ${avgSR===null?'text-slate-300':avgSR>=80?'text-emerald-600':avgSR>=60?'text-amber-600':'text-rose-600'}`}>{avgSR===null?'—':avgSR+'%'}</p>
+                            <div className="mt-2 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                              {avgSR!==null && <div className={`h-full rounded-full ${avgSR>=80?'bg-emerald-500':avgSR>=60?'bg-amber-400':'bg-rose-500'}`} style={{width:`${avgSR}%`}}></div>}
+                            </div>
+                          </div>
+                          <div className="bg-white rounded-2xl p-5 shadow-soft border border-amber-100">
+                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">คะแนนคุณภาพเฉลี่ย</p>
+                            <p className={`text-3xl font-bold ${avgQS===null?'text-slate-300':avgQS>=4?'text-emerald-600':avgQS>=3?'text-amber-600':'text-rose-600'}`}>{avgQS===null?'—':avgQS}</p>
+                            <div className="flex gap-0.5 mt-1.5">
+                              {[1,2,3,4,5].map(s=><i key={s} className={`fa-solid fa-star text-xs ${avgQS!==null&&avgQS>=s?'text-amber-400':'text-slate-200'}`}></i>)}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Per-Project Cards */}
+                    <div className="space-y-5">
+                      {projects.map(proj => {
+                        const projActs    = activities.filter(a => a.project === proj.name);
+                        const evalActs    = projActs.filter(a => a.successRate !== undefined && a.successRate !== '' && a.successRate !== null);
+                        const pendingActs = projActs.filter(a => a.successRate === undefined || a.successRate === '' || a.successRate === null);
+                        const avgSR  = evalActs.length > 0 ? Math.round(evalActs.reduce((s,a)=>s+Number(a.successRate||0),0)/evalActs.length*10)/10 : null;
+                        const avgQS  = evalActs.length > 0 ? Math.round(evalActs.reduce((s,a)=>s+Number(a.qualityScore||0),0)/evalActs.length*10)/10 : null;
+                        const srColor = (v) => v>=80?'text-emerald-600':v>=60?'text-amber-600':'text-rose-600';
+                        const srBg    = (v) => v>=80?'bg-emerald-500':v>=60?'bg-amber-400':'bg-rose-500';
+                        const qsLabel = ['','ต้องปรับปรุง','พอใช้','ดี','ดีมาก','ดีเยี่ยม'];
+
+                        return (
+                          <div key={proj.id} className="bg-white rounded-2xl shadow-soft border border-slate-100 overflow-hidden">
+
+                            {/* Project Header */}
+                            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-xl bg-brand-primary/10 flex items-center justify-center shrink-0">
+                                  <i className="fa-solid fa-folder-open text-brand-primary text-sm"></i>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-800 truncate">{proj.name}</p>
+                                  <p className="text-xs text-slate-400 font-mono mt-0.5">{proj.code}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0 ml-4">
+                                {/* ผลประเมินโครงการ */}
+                                {avgSR !== null ? (
+                                  <div className="text-right">
+                                    <p className={`text-2xl font-bold ${srColor(avgSR)}`}>{avgSR}%</p>
+                                    <p className="text-xs text-slate-400">ร้อยละสำเร็จ</p>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-slate-400 bg-slate-100 px-3 py-1.5 rounded-full">ยังไม่มีการประเมิน</span>
+                                )}
+                                {avgQS !== null && (
+                                  <div className="text-right">
+                                    <p className="text-2xl font-bold text-amber-500">{avgQS}<span className="text-sm text-slate-400">/5</span></p>
+                                    <div className="flex gap-0.5 justify-end mt-0.5">
+                                      {[1,2,3,4,5].map(s=><i key={s} className={`fa-solid fa-star text-xs ${avgQS>=s?'text-amber-400':'text-slate-200'}`}></i>)}
+                                    </div>
+                                  </div>
+                                )}
+                                <button onClick={()=>setReportModal(proj)}
+                                  className="flex items-center gap-2 bg-brand-primary text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 transition shadow-lg shadow-brand-primary/20">
+                                  <i className="fa-solid fa-file-chart-column text-xs"></i>รายงาน
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Activity List */}
+                            {projActs.length === 0 ? (
+                              <div className="px-5 py-6 text-center text-slate-300 text-sm">
+                                <i className="fa-solid fa-folder-open text-3xl block mb-2 opacity-40"></i>ยังไม่มีกิจกรรมในโครงการนี้
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-slate-50">
+                                {projActs.map((act, idx) => {
+                                  const hasEval = act.successRate !== undefined && act.successRate !== '' && act.successRate !== null;
+                                  const sr = Number(act.successRate||0);
+                                  const qs = Number(act.qualityScore||0);
+                                  return (
+                                    <div key={act.id} className={`flex items-center gap-4 px-5 py-3.5 ${hasEval?'hover:bg-emerald-50/30':'hover:bg-slate-50'} transition-colors group`}>
+                                      {/* No. */}
+                                      <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs font-bold flex items-center justify-center shrink-0">{idx+1}</span>
+
+                                      {/* Name */}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-semibold text-slate-800 text-sm truncate">{act.name}</p>
+                                        {act.evalNote && <p className="text-xs text-slate-400 italic truncate mt-0.5">"{act.evalNote}"</p>}
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${
+                                            act.status==='เสร็จสิ้น'?'bg-emerald-50 text-emerald-600 border-emerald-200':
+                                            act.status==='กำลังดำเนินการ'?'bg-blue-50 text-blue-600 border-blue-200':
+                                            'bg-slate-50 text-slate-500 border-slate-200'
+                                          }`}>{act.status}</span>
+                                          <span className="bg-slate-800 text-white text-xs px-1.5 py-0.5 rounded font-bold">{act.pdca||'Plan'}</span>
+                                        </div>
+                                      </div>
+
+                                      {/* Eval Result */}
+                                      {hasEval ? (
+                                        <div className="flex items-center gap-4 shrink-0">
+                                          {/* % bar */}
+                                          <div className="text-right w-20">
+                                            <p className={`text-lg font-bold ${srColor(sr)}`}>{sr}%</p>
+                                            <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
+                                              <div className={`h-full rounded-full ${srBg(sr)}`} style={{width:`${sr}%`}}></div>
+                                            </div>
+                                          </div>
+                                          {/* Stars */}
+                                          <div className="text-right w-16">
+                                            <p className="text-lg font-bold text-amber-500">{qs}<span className="text-xs text-slate-400">/5</span></p>
+                                            <div className="flex gap-0.5 justify-end mt-0.5">
+                                              {[1,2,3,4,5].map(s=><i key={s} className={`fa-solid fa-star text-xs ${qs>=s?'text-amber-400':'text-slate-200'}`}></i>)}
+                                            </div>
+                                          </div>
+                                          {/* Label */}
+                                          <span className={`hidden sm:block text-xs font-semibold px-2.5 py-1 rounded-lg border w-20 text-center ${
+                                            qs>=4.5?'bg-emerald-50 text-emerald-700 border-emerald-200':
+                                            qs>=3.5?'bg-blue-50 text-blue-700 border-blue-200':
+                                            qs>=2.5?'bg-amber-50 text-amber-700 border-amber-200':
+                                            'bg-rose-50 text-rose-700 border-rose-200'
+                                          }`}>{qsLabel[Math.round(qs)]||''}</span>
+                                          {/* Re-eval button */}
+                                          <button onClick={()=>setEvalModal(act)}
+                                            className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition text-xs"
+                                            title="แก้ไขผลประเมิน">
+                                            <i className="fa-solid fa-pen text-xs"></i>
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          {(act.status === 'เสร็จสิ้น' || act.status === 'กำลังดำเนินการ') ? (
+                                            <button onClick={()=>setEvalModal(act)}
+                                              className="flex items-center gap-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">
+                                              <i className="fa-solid fa-star text-xs"></i>ประเมินผล
+                                            </button>
+                                          ) : (
+                                            <span className="text-xs text-slate-300 px-3">—</span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Project average footer */}
+                                {evalActs.length > 0 && (
+                                  <div className="flex items-center gap-4 px-5 py-3.5 bg-gradient-to-r from-slate-50 to-indigo-50/30 border-t-2 border-brand-primary/10">
+                                    <span className="w-6 h-6 shrink-0"></span>
+                                    <div className="flex-1">
+                                      <p className="font-bold text-slate-700 text-sm flex items-center gap-2">
+                                        <i className="fa-solid fa-calculator text-brand-primary text-xs"></i>
+                                        ผลเฉลี่ยโครงการ
+                                        <span className="text-xs font-normal text-slate-400">({evalActs.length}/{projActs.length} กิจกรรม)</span>
+                                        {pendingActs.length > 0 && <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">ยังไม่ครบ {pendingActs.length} รายการ</span>}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-4 shrink-0">
+                                      <div className="text-right w-20">
+                                        <p className={`text-xl font-bold ${srColor(avgSR)}`}>{avgSR}%</p>
+                                        <div className="w-full bg-slate-200 rounded-full h-2 mt-1 overflow-hidden">
+                                          <div className={`h-full rounded-full ${srBg(avgSR)}`} style={{width:`${avgSR}%`}}></div>
+                                        </div>
+                                      </div>
+                                      <div className="text-right w-16">
+                                        <p className="text-xl font-bold text-amber-500">{avgQS}<span className="text-xs text-slate-400">/5</span></p>
+                                        <div className="flex gap-0.5 justify-end mt-0.5">
+                                          {[1,2,3,4,5].map(s=><i key={s} className={`fa-solid fa-star text-xs ${avgQS>=s?'text-amber-400':'text-slate-200'}`}></i>)}
+                                        </div>
+                                      </div>
+                                      <span className={`hidden sm:block text-xs font-bold px-3 py-1.5 rounded-xl border w-20 text-center ${
+                                        avgQS>=4.5?'bg-emerald-100 text-emerald-700 border-emerald-300':
+                                        avgQS>=3.5?'bg-blue-100 text-blue-700 border-blue-300':
+                                        avgQS>=2.5?'bg-amber-100 text-amber-700 border-amber-300':
+                                        'bg-rose-100 text-rose-700 border-rose-300'
+                                      }`}>{qsLabel[Math.round(avgQS)]||''}</span>
+                                      <div className="w-7"></div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Empty state */}
+                    {projects.length === 0 && (
+                      <div className="bg-white rounded-2xl shadow-soft border border-slate-100 p-12 text-center text-slate-300">
+                        <i className="fa-solid fa-folder-open text-5xl mb-3 block opacity-40"></i>
+                        <p>ยังไม่มีโครงการ กรุณาสร้างโครงการก่อน</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </div>
             </div>
           </main>
@@ -2690,6 +3302,7 @@
     }
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-  </script>
+  
+</script>
 </body>
 </html>
