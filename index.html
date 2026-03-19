@@ -2165,6 +2165,33 @@
                         className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-brand-primary focus:ring-4 focus:ring-brand-primary/10 transition shadow-soft" />
                     </div>
 
+                    {/* Banner: กิจกรรมรอประเมิน */}
+                    {(() => {
+                      const readyToEval = activities.filter(a =>
+                        (a.status==='เสร็จสิ้น'||a.status==='กำลังดำเนินการ') &&
+                        (a.successRate===undefined||a.successRate===''||a.successRate===null)
+                      );
+                      if (readyToEval.length === 0) return null;
+                      return (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shrink-0">
+                              <i className="fa-solid fa-star text-white text-sm"></i>
+                            </div>
+                            <div>
+                              <p className="font-bold text-emerald-800 text-sm">มีกิจกรรมรอประเมินผล {readyToEval.length} รายการ</p>
+                              <p className="text-emerald-600 text-xs mt-0.5">กิจกรรมที่ดำเนินการแล้วยังไม่มีผลประเมิน — กดปุ่ม <span className="font-bold">ประเมินผล</span> ในคอลัมน์ผลประเมิน</p>
+                            </div>
+                          </div>
+                          <button onClick={()=>setEvalModal(readyToEval[0])}
+                            className="shrink-0 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5">
+                            <i className="fa-solid fa-star text-xs"></i>
+                            ประเมินรายการแรก
+                          </button>
+                        </div>
+                      );
+                    })()}
+
                     {sheetsError && (
                       <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-3 text-xs text-amber-700">
                         <i className="fa-solid fa-triangle-exclamation shrink-0"></i>
@@ -2227,6 +2254,35 @@
                                     <span className="text-slate-300 text-xs">—</span>
                                   )}
                                 </td>
+                                {/* คอลัมน์ผลประเมิน */}
+                                <td className="px-5 py-4 text-center">
+                                  {act.successRate !== undefined && act.successRate !== '' && act.successRate !== null ? (
+                                    <button onClick={()=>setEvalModal(act)}
+                                      className="inline-flex flex-col items-center gap-0.5 group"
+                                      title="คลิกเพื่อแก้ไขผลประเมิน">
+                                      <div className="flex items-center gap-1">
+                                        <span className={`text-sm font-bold ${Number(act.successRate)>=80?'text-emerald-600':Number(act.successRate)>=60?'text-amber-600':'text-rose-600'}`}>
+                                          {act.successRate}%
+                                        </span>
+                                        <span className="text-slate-400 text-xs">|</span>
+                                        <span className="text-amber-500 font-bold text-sm">{act.qualityScore}<span className="text-slate-400 text-xs font-normal">/5</span></span>
+                                      </div>
+                                      <div className="flex gap-0.5">
+                                        {[1,2,3,4,5].map(s=><i key={s} className={`fa-solid fa-star text-[9px] ${Number(act.qualityScore)>=s?'text-amber-400':'text-slate-200'}`}></i>)}
+                                      </div>
+                                      <span className="text-[10px] text-slate-400 group-hover:text-brand-primary transition">แก้ไข</span>
+                                    </button>
+                                  ) : (act.status==='เสร็จสิ้น'||act.status==='กำลังดำเนินการ') ? (
+                                    <button onClick={()=>setEvalModal(act)}
+                                      className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-emerald-50 border-2 border-emerald-200 border-dashed hover:bg-emerald-100 hover:border-emerald-400 transition group">
+                                      <i className="fa-solid fa-star text-emerald-400 group-hover:text-emerald-600 text-base transition"></i>
+                                      <span className="text-[11px] font-bold text-emerald-600">ประเมินผล</span>
+                                    </button>
+                                  ) : (
+                                    <span className="text-slate-300 text-xs">—</span>
+                                  )}
+                                </td>
+                                {/* คอลัมน์จัดการ */}
                                 <td className="px-5 py-4 text-center">
                                   <div className="flex items-center justify-center gap-1">
                                     <button onClick={()=>setSelectedAct(act)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-brand-primary hover:bg-indigo-50 inline-flex items-center justify-center transition" title="ดูรายละเอียด">
@@ -2238,13 +2294,6 @@
                                     <button onClick={()=>setPdcaModal(act)} className="w-8 h-8 rounded-lg text-slate-400 hover:text-purple-500 hover:bg-purple-50 inline-flex items-center justify-center transition" title="อัปเดต PDCA">
                                       <i className="fa-solid fa-rotate text-sm"></i>
                                     </button>
-                                    {(act.status==='เสร็จสิ้น'||act.status==='กำลังดำเนินการ') && (
-                                      <button onClick={()=>setEvalModal(act)}
-                                        className={`w-8 h-8 rounded-lg inline-flex items-center justify-center transition ${act.successRate!==undefined&&act.successRate!==''?'text-emerald-500 bg-emerald-50 hover:bg-emerald-100':'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`}
-                                        title={act.successRate!==undefined&&act.successRate!==''?'แก้ไขผลประเมิน':'ประเมินผล'}>
-                                        <i className="fa-solid fa-star text-sm"></i>
-                                      </button>
-                                    )}
                                   </div>
                                 </td>
                               </tr>
